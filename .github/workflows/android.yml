@@ -28,7 +28,8 @@ jobs:
             tar -xJf "$RUNNER_TEMP/mangaink-source.tar.xz" -C "$RUNNER_TEMP"
             cp -a "$RUNNER_TEMP/MangaInker/." .
             rm -rf bootstrap "$RUNNER_TEMP/MangaInker"
-            git add -A
+            # The Actions token cannot commit workflow-file changes without the separate workflows scope.
+            git add -A -- ':!.github/workflows/android.yml'
             if ! git diff --cached --quiet; then
               git config user.name "github-actions[bot]"
               git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
