@@ -14,6 +14,6 @@ class MangaInkerApp : Application() {
         super.onCreate()
         sessionController = SessionController(applicationContext)
         updateManager = GitHubUpdateManager(applicationContext)
-        updateManager.checkForUpdate()
+        updateManager.startAutomaticChecks()
     }
 }

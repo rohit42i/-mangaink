@@ -12,12 +12,15 @@ import android.util.Base64
 import com.example.mangainker.core.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -47,10 +50,22 @@ class GitHubUpdateManager(context: Context) {
     private val appContext = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val tokenStore = GitHubTokenStore(appContext)
+    private var automaticCheckJob: Job? = null
     private val mutableState = MutableStateFlow(
         UpdateUiState(tokenConfigured = tokenStore.load() != null)
     )
     val state: StateFlow<UpdateUiState> = mutableState.asStateFlow()
+
+    fun startAutomaticChecks() {
+        if (automaticCheckJob?.isActive == true) return
+        automaticCheckJob = scope.launch {
+            checkForUpdate()
+            while (isActive) {
+                delay(AUTO_CHECK_INTERVAL_MS)
+                checkForUpdate()
+            }
+        }
+    }
 
     fun saveTokenAndCheck(token: String) {
         val clean = token.trim()
@@ -321,6 +336,7 @@ class GitHubUpdateManager(context: Context) {
     }
 
     companion object {
+        private const val AUTO_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1_000L
         private const val RELEASE_API =
             "https://api.github.com/repos/rohit42i/-mangaink/releases/tags/mobile-latest"
     }
