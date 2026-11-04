@@ -7,3 +7,7 @@ See the project structure and current build status in the source files. Artwork 
 **Important:** Accessibility gesture completion does not prove that ibisPaint visibly drew the line. The app requires the user to inspect and undo a test curve before unlocking full-page inking. Pressure and tilt are not reproduced.
 
 Early builds must be tested on a duplicate page. The OPPO F29 / ColorOS device behavior has not yet been verified.
+
+## Current milestone
+
+Version 0.3.0-alpha. The first milestone focuses on local outline-to-path reconstruction, page-corner calibration, one-curve verification, and guarded sequential gesture playback. Full AI-based line understanding, lettering, panel layout, tone generation, and export tools are planned only after the drawing gesture is proven on a real device.
