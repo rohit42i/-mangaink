@@ -50,9 +50,6 @@ jobs:
       - name: Run Android lint
         run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:lintDebug
 
-      - name: Build debug APK
-        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:assembleDebug
-
       - name: Build signed release APK
         run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:assembleRelease
 
@@ -74,14 +71,6 @@ jobs:
           grep -q 'android.permission.INTERNET' "$manifest"
           grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$manifest"
           echo "Verified: network is for the private GitHub updater; no broad-storage or MediaProjection permission."
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: manga-inker-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
 
       - name: Upload signed first-install APK
         uses: actions/upload-artifact@v4
