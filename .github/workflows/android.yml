@@ -2,7 +2,7 @@ name: Manga Inker Android CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'feature/manga-studio-0.4' ]
   workflow_dispatch:
 
 permissions:
