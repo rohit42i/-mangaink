@@ -23,7 +23,10 @@ enum class PanelPreset(val label: String) {
 enum class TonePattern(val label: String) {
     DOTS("Dots"),
     DIAGONAL("Diagonal lines"),
-    CROSSHATCH("Crosshatch")
+    CROSSHATCH("Crosshatch"),
+    HORIZONTAL("Horizontal lines"),
+    VERTICAL("Vertical lines"),
+    SPEED_LINES("Speed lines")
 }
 
 enum class LetteringType(val label: String) {
