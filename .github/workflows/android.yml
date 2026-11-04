@@ -2,7 +2,7 @@ name: Manga Inker Android CI
 
 on:
   push:
-    branches: [ main, 'feature/manga-studio-0.4' ]
+    branches: [ main, 'feature/manga-studio-0.4', 'feature/manga-inker-workspace-0.5' ]
   workflow_dispatch:
 
 concurrency:
