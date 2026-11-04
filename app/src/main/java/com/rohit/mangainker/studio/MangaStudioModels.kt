@@ -10,12 +10,14 @@ data class PageRect(val left: Float, val top: Float, val right: Float, val botto
 }
 
 enum class PanelPreset(val label: String) {
+    KEEP_ORIGINAL("Keep existing panels"),
     SINGLE("Single page"),
     TWO_ROWS("Two horizontal panels"),
     TWO_COLUMNS("Two vertical panels"),
     THREE_STRIPS("Three horizontal panels"),
     FOUR_GRID("Four-panel grid"),
-    SIX_GRID("Six-panel grid")
+    SIX_GRID("Six-panel grid"),
+    SEVEN_PANELS("Seven-panel page")
 }
 
 enum class TonePattern(val label: String) {
@@ -47,7 +49,7 @@ data class LetteringElement(
 }
 
 data class StudioSettings(
-    val panelPreset: PanelPreset = PanelPreset.SINGLE,
+    val panelPreset: PanelPreset = PanelPreset.KEEP_ORIGINAL,
     val gutterFraction: Float = 0.018f,
     val borderWidth: Float = 5f,
     val tonePattern: TonePattern? = null,
@@ -83,13 +85,33 @@ object PanelLayout {
             }
         }
         return when (preset) {
+            PanelPreset.KEEP_ORIGINAL -> emptyList()
             PanelPreset.SINGLE -> listOf(PageRect(0f, 0f, 1f, 1f))
             PanelPreset.TWO_ROWS -> horizontal(2)
             PanelPreset.TWO_COLUMNS -> vertical(2)
             PanelPreset.THREE_STRIPS -> horizontal(3)
             PanelPreset.FOUR_GRID -> grid(2, 2, gap)
             PanelPreset.SIX_GRID -> grid(3, 2, gap)
+            // A practical 1 + 2 + 4 page: one full-width opener, two middle beats, four closing beats.
+            PanelPreset.SEVEN_PANELS -> sevenPanelLayout(gap)
         }
+    }
+
+    private fun sevenPanelLayout(gutter: Float): List<PageRect> {
+        val rowHeight = (1f - gutter * 2f) / 3f
+        val halfWidth = (1f - gutter) / 2f
+        val quarterWidth = (1f - gutter * 3f) / 4f
+        val middleTop = rowHeight + gutter
+        val bottomTop = middleTop + rowHeight + gutter
+        return listOf(
+            PageRect(0f, 0f, 1f, rowHeight),
+            PageRect(0f, middleTop, halfWidth, middleTop + rowHeight),
+            PageRect(halfWidth + gutter, middleTop, 1f, middleTop + rowHeight),
+            PageRect(0f, bottomTop, quarterWidth, 1f),
+            PageRect(quarterWidth + gutter, bottomTop, quarterWidth * 2f + gutter, 1f),
+            PageRect(quarterWidth * 2f + gutter * 2f, bottomTop, quarterWidth * 3f + gutter * 2f, 1f),
+            PageRect(quarterWidth * 3f + gutter * 3f, bottomTop, 1f, 1f)
+        )
     }
 
     private fun grid(columns: Int, rows: Int, gutter: Float): List<PageRect> {
@@ -107,9 +129,12 @@ object PanelLayout {
     }
 
     fun tonePanelRectangles(settings: StudioSettings): List<PageRect> {
+        if (settings.tonePattern == null) return emptyList()
+        if (settings.panelPreset == PanelPreset.KEEP_ORIGINAL) {
+            return if (settings.tonePanelIndex == -1) listOf(PageRect(0f, 0f, 1f, 1f)) else emptyList()
+        }
         val panels = rectangles(settings.panelPreset, settings.gutterFraction)
         return when {
-            settings.tonePattern == null -> emptyList()
             settings.tonePanelIndex == -1 -> panels
             settings.tonePanelIndex !in panels.indices -> emptyList()
             else -> listOf(panels[settings.tonePanelIndex])
