@@ -2,6 +2,7 @@ package com.example.mangainker.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
@@ -307,9 +309,9 @@ private fun HomeScreen(
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TestMetric("HEIGHT", "400 px")
-                    TestMetric("DURATION", "1.5 sec")
-                    TestMetric("MODE", "Single run")
+                    TestMetric("HEIGHT", "400 px", Modifier.weight(1f))
+                    TestMetric("DURATION", "1.5 sec", Modifier.weight(1f))
+                    TestMetric("MODE", "Single run", Modifier.weight(1f))
                 }
                 Button(
                     onClick = onTestStroke,
@@ -334,9 +336,9 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun TestMetric(label: String, value: String) {
+private fun TestMetric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(InkPalette.surface).padding(horizontal = 9.dp, vertical = 10.dp),
+        modifier = modifier.clip(RoundedCornerShape(8.dp)).background(InkPalette.surface).padding(horizontal = 9.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(label, color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
