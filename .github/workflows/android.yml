@@ -5,6 +5,10 @@ on:
     branches: [ main, 'feature/manga-studio-0.4' ]
   workflow_dispatch:
 
+concurrency:
+  group: manga-inker-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
