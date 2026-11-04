@@ -572,13 +572,13 @@ class SessionController(context: Context) {
             mutableState.update { it.copy(isError = true, message = "Canvas calibration is invalid. Calibrate again.") }
             return
         }
-        val maxX = (snapshot.scanWidthPx - 1).coerceAtLeast(1).toFloat()
-        val maxY = (snapshot.scanHeightPx - 1).coerceAtLeast(1).toFloat()
+        val pageMaxX = (snapshot.pageWidth - 1).coerceAtLeast(1).toFloat()
+        val pageMaxY = (snapshot.pageHeight - 1).coerceAtLeast(1).toFloat()
         val mappedPaths = snapshot.paths.mapNotNull { inkPath ->
             val mapped = inkPath.points.map { point ->
                 transform.map(
-                    (point.x / maxX).coerceIn(0f, 1f),
-                    (point.y / maxY).coerceIn(0f, 1f)
+                    ((snapshot.scanLeftPx + point.x) / pageMaxX).coerceIn(0f, 1f),
+                    ((snapshot.scanTopPx + point.y) / pageMaxY).coerceIn(0f, 1f)
                 )
             }
             if (mapped.size < 2 || mapped.any { !it.x.isFinite() || !it.y.isFinite() }) null
