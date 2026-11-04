@@ -80,8 +80,8 @@ class PathPlayer(private val scope: CoroutineScope) {
                 val t = index / 60.0
                 val normalizedX = tanh(5.0 * (t - 0.5)) / scale
                 PointF(
-                    x = centerX + (amplitude * normalizedX).toFloat(),
-                    y = centerY - 200f + (400f * t).toFloat()
+                    centerX + (amplitude * normalizedX).toFloat(),
+                    centerY - 200f + (400f * t).toFloat()
                 )
             }
         }
