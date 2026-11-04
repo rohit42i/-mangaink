@@ -6,7 +6,6 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -19,6 +18,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.view.ViewCompat
+import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -141,7 +141,7 @@ class MainActivity : Activity() {
         })
         page.addView(actionButton("2. Allow floating controls") {
             if (!Settings.canDrawOverlays(this)) {
-                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
             } else toast("Floating controls permission is already enabled.")
         })
         openControlsButton = actionButton("Open ibisPaint inking controls") { startFloatingPanel() }
@@ -275,7 +275,7 @@ class MainActivity : Activity() {
         }
         if (!Settings.canDrawOverlays(this)) {
             toast("Allow display over other apps first.")
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
             return
         }
         val intent = Intent(this, FloatingPanelService::class.java)
