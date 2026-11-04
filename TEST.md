@@ -12,7 +12,8 @@ Target: OPPO F29 5G, Android 16 / ColorOS.
 - [ ] Open ibisPaint X, open a blank canvas and select a brush.
 
 ## Test
-- [ ] Tap Test stroke, or show floating controls and tap Start.
+- [ ] In Manga Inker, tap Test stroke to open the floating panel (or open the panel directly).
+- [ ] Switch to ibisPaint X and tap Start on the floating panel.
 - [ ] Check whether an S-curve appears near screen centre.
 - [ ] Check whether it is approximately 400 px tall.
 - [ ] Undo the mark in ibisPaint.
