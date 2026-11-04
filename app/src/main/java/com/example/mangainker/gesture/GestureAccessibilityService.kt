@@ -6,6 +6,7 @@ import android.graphics.Path
 import android.graphics.PointF
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import com.example.mangainker.core.AppState
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -19,9 +20,10 @@ class GestureAccessibilityService : AccessibilityService() {
 
     val isIbisPaintForeground: Boolean
         get() = activePackage in setOf("jp.ne.ibis.ibispaintx.app", "jp.ne.ibis.ibispaint.app")
-    override fun onInterrupt() { Log.w(TAG, "accessibility interrupted") }
+    override fun onInterrupt() { Log.w(TAG, "accessibility interrupted"); AppState.stop() }
 
     override fun onDestroy() {
+        AppState.stop()
         if (instance === this) instance = null
         super.onDestroy()
     }
