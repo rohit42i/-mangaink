@@ -26,7 +26,9 @@ android {
 
     lint {
         // API 36 is the latest stable Android platform; API 37 remains in beta.
-        disable += "OldTargetApi"
+        // Core 1.18 requires API 36.1 and 1.19 requires API 37 / newer AGP.
+        // Keep the verified Android 16-compatible Core 1.17.0 dependency.
+        disable += setOf("OldTargetApi", "GradleDependency")
     }
 }
 
