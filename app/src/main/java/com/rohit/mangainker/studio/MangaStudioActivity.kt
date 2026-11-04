@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -248,15 +249,31 @@ class MangaStudioActivity : Activity() {
         }
     }
 
-    private fun section(value: String): TextView = text(value, 11f, Color.rgb(112, 216, 232), true).apply {
-        setPadding(0, dp(20), 0, dp(8))
+    private fun section(value: String): TextView = text(value.uppercase(), 11f, Color.rgb(126, 205, 220), true).apply {
+        setPadding(dp(12), dp(12), dp(12), dp(12))
         letterSpacing = 0.09f
+        background = GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setColor(Color.rgb(25, 32, 41))
+            setStroke(dp(1), Color.rgb(43, 55, 68))
+        }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(18)
+            bottomMargin = dp(8)
+        }
     }
 
     private fun sliderLabel(title: String, detail: String): View {
-        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
-        column.addView(text(title, 13f, Color.WHITE, true))
-        column.addView(text(detail, 11f, Color.rgb(142, 157, 174), false))
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(10), dp(12), dp(4))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(11).toFloat()
+                setColor(Color.rgb(21, 27, 35))
+            }
+        }
+        column.addView(text(title, 13f, Color.rgb(238, 243, 248), true))
+        column.addView(text(detail, 11f, Color.rgb(151, 164, 179), false))
         return column
     }
 
@@ -284,10 +301,18 @@ class MangaStudioActivity : Activity() {
         text = label
         isAllCaps = false
         textSize = 12f
-        minHeight = dp(44)
+        minHeight = dp(46)
+        setTextColor(Color.rgb(238, 243, 248))
+        stateListAnimator = null
+        background = GradientDrawable().apply {
+            cornerRadius = dp(13).toFloat()
+            setColor(Color.rgb(35, 44, 56))
+            setStroke(dp(1), Color.rgb(57, 71, 87))
+        }
+        setPadding(dp(12), dp(6), dp(12), dp(6))
         setOnClickListener { action() }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(48)).apply {
-            bottomMargin = dp(6)
+            bottomMargin = dp(7)
         }
     }
 
