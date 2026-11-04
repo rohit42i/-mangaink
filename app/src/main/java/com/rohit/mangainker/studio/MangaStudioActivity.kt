@@ -171,8 +171,13 @@ class MangaStudioActivity : Activity() {
 
     private fun refreshTonePanelOptions() {
         if (!::tonePanelSpinner.isInitialized || !::panelSpinner.isInitialized) return
-        val count = PanelLayout.rectangles(PanelPreset.values()[panelSpinner.selectedItemPosition], gutterSeek.progress / 1000f).size
-        val options = listOf("All panels") + (1..count).map { "Panel $it" }
+        val selectedPreset = PanelPreset.values()[panelSpinner.selectedItemPosition]
+        val count = PanelLayout.rectangles(selectedPreset, gutterSeek.progress / 1000f).size
+        val options = if (selectedPreset == PanelPreset.KEEP_ORIGINAL) {
+            listOf("Whole page")
+        } else {
+            listOf("All panels") + (1..count).map { "Panel $it" }
+        }
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, options).apply {
             setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         }
