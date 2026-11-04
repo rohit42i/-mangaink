@@ -50,7 +50,10 @@ class GestureAccessibilityService : AccessibilityService() {
                 }
             }, null)
             Log.i(TAG, "dispatch accepted=$accepted duration=${duration}ms")
-            if (!accepted && continuation.isActive) continuation.resume(false)
+            if (!accepted && continuation.isActive) {
+                Log.w(TAG, "cancelled reason=dispatch rejected duration=${duration}ms")
+                continuation.resume(false)
+            }
             continuation.invokeOnCancellation {
                 Log.w(TAG, "player cancelled; active Android gesture may finish")
             }
