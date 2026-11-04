@@ -1,35 +1,58 @@
-# Stage 1 manual device test
+# Stage 1 device test record
 
-Target: OPPO F29 5G, Android 16 / ColorOS.
+Do not mark a test as passed until the visible result has been checked on the phone. An Android `dispatchGesture` callback alone is not proof that ibisPaint rendered a line.
 
-## Setup
-- [ ] Install the debug APK.
-- [ ] If Android shows “App was denied access”, open App info → three-dot menu → Allow restricted settings (only for the trusted APK).
-- [ ] Open Manga Inker → Accessibility settings → enable Manga Inker gesture access.
-- [ ] Return and verify Accessibility says Enabled.
-- [ ] Open Overlay settings → allow Display over other apps.
-- [ ] Return and verify Overlay says Enabled.
-- [ ] Open ibisPaint X, open a blank canvas and select a brush.
+## Device and app details
 
-## Test
-- [ ] In Manga Inker, tap Test stroke to open the floating panel (or open the panel directly).
-- [ ] Switch to ibisPaint X and tap Start on the floating panel.
-- [ ] Check whether an S-curve appears near screen centre.
-- [ ] Check whether it is approximately 400 px tall.
-- [ ] Undo the mark in ibisPaint.
-- [ ] Test Pause, Resume and Stop in the floating panel.
-- [ ] Verify RUNNING and PAUSED indicators.
-- [ ] Verify Stop prevents later segments from starting.
-
-## Record
-- Date/time:
-- Android / ColorOS build:
+- Date and time:
+- Device: OPPO F29 5G
+- Android version:
+- ColorOS version:
+- Manga Inker version:
 - ibisPaint X version:
-- Brush:
-- Did the curve appear? Yes / No
-- Was it centred and approximately 400 px tall? Yes / No
-- MI_GESTURE result:
-- Pause/resume/stop results:
-- Warnings or errors:
+- Canvas size:
+- Selected brush:
+- Brush size and opacity:
 
-A MI_GESTURE “completed” log means Android completed the synthetic gesture. It does not prove ibisPaint rendered a visible line. Only the on-device check confirms that.
+## Setup checklist
+
+- [ ] Debug APK installed.
+- [ ] Restricted settings unlocked where Android 13+ requires it.
+- [ ] Accessibility service enabled.
+- [ ] Display over other apps enabled.
+- [ ] Main screen shows both permissions as Granted.
+- [ ] Floating panel appears and can be dragged and snapped to an edge.
+- [ ] Collapsed panel shows the state dot and expand handle.
+- [ ] Running screen border appears only while a test is active.
+
+## Gesture proof
+
+- [ ] Open ibisPaint X and select the brush recorded above.
+- [ ] Tap Test stroke in Manga Inker.
+- [ ] Switch to ibisPaint X and tap Start on the floating panel.
+- [ ] Observe whether a line appears.
+- [ ] Check whether the line is an S-curve and approximately 400 px tall.
+- [ ] Answer the in-app result dialog with Yes, No or Partly.
+- [ ] Confirm the answer appears in the `MI_GESTURE` log.
+- [ ] Undo the test mark in ibisPaint, if one appeared.
+
+## Controls and recovery
+
+- [ ] Pause waits until the active segment completes.
+- [ ] Resume continues with the next segment.
+- [ ] Stop prevents later segments from being dispatched.
+- [ ] Volume-down long press stops a running session.
+- [ ] Leaving ibisPaint stops the run.
+- [ ] Disabling Accessibility mid-run stops the run and displays a recovery message.
+- [ ] Debug log viewer shows segment index, duration and dispatch result.
+
+## Result
+
+- Visible line result: **Not tested**
+- Overall Stage 1 result: **Not tested**
+- Notes:
+- MI_GESTURE log excerpt:
+- Unexpected marks or interruptions:
+- Retest needed:
+
+Only change the result above after completing the checks on the OPPO F29.

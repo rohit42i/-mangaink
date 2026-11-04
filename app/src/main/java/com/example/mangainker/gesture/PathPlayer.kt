@@ -1,27 +1,89 @@
 package com.example.mangainker.gesture
+
 import android.graphics.PointF
-import com.example.mangainker.core.AppState
-import com.example.mangainker.core.PlayerCommand
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import kotlin.math.PI
-import kotlin.math.sin
-class PathPlayer{
- private val scope=CoroutineScope(SupervisorJob()+Dispatchers.Main.immediate)
- private var playback:Job?=null
- private var points=emptyList<PointF>()
- private var cursor=0
- init{scope.launch{AppState.command.collect{cmd->when(cmd){is PlayerCommand.Start->start();is PlayerCommand.Pause->pause();is PlayerCommand.Resume->resume();is PlayerCommand.Stop->stop();PlayerCommand.Idle->Unit}}}}
- private fun start(){if(playback?.isActive==true)return;val service=GestureAccessibilityService.instance;if(service==null){AppState.status("Accessibility is not enabled.");return};if(!service.isIbisPaintForeground){AppState.status("Open ibisPaint X and tap Start in the floating panel.");return};points=makeCurve();cursor=0;AppState.running(true);AppState.paused(false);AppState.status("RUNNING • Test S-curve");play()}
- private fun pause(){if(!AppState.running.value)return;AppState.paused(true);AppState.status("PAUSING • Current gesture finishes (maximum 500 ms), then playback pauses.")}
- private fun resume(){if(!AppState.running.value||!AppState.paused.value)return;AppState.paused(false);AppState.status("RUNNING • Resuming");play()}
- private fun stop(){playback?.cancel();playback=null;cursor=points.size;AppState.running(false);AppState.paused(false);AppState.status("STOPPED • No further segments will be sent")}
- private fun play(){if(playback?.isActive==true)return;playback=scope.launch{try{val service=GestureAccessibilityService.instance?:error("Accessibility disconnected");while(cursor<points.lastIndex&&AppState.running.value&&!AppState.paused.value){val end=minOf(cursor+20,points.lastIndex);val ok=service.drawPath(points.subList(cursor,end+1),466L);if(!ok){AppState.running(false);AppState.paused(false);AppState.status("GESTURE CANCELLED OR REJECTED");return@launch};cursor=end;if(cursor<points.lastIndex)delay(50L)};if(cursor>=points.lastIndex&&AppState.running.value){AppState.running(false);AppState.paused(false);AppState.status("Dispatch completed. Check ibisPaint to confirm the mark appeared.")}else if(AppState.paused.value){AppState.status("PAUSED • Ready to resume.")}}catch(e:CancellationException){throw e}catch(e:Exception){AppState.running(false);AppState.paused(false);AppState.status("ERROR • ${e.message?:"Unknown gesture error"}")}}}
- private fun makeCurve():List<PointF>{val m=GestureAccessibilityService.instance?.resources?.displayMetrics?:error("Accessibility unavailable");val cx=m.widthPixels/2f;val cy=m.heightPixels/2f;val halfW=minOf(m.widthPixels*.22f,150f);return(0..60).map{i->val t=i/60f;PointF(cx+sin(2.0*PI*t-PI/2.0).toFloat()*halfW,cy-200f+400f*t)}}
+import kotlin.math.ceil
+import kotlin.math.tanh
+
+class PathPlayer(private val scope: CoroutineScope) {
+    private val segmenter = GestureSegmenter()
+    private var playbackJob: Job? = null
+    @Volatile private var pauseRequested = false
+
+    fun start(
+        widthPx: Int,
+        heightPx: Int,
+        totalDurationMs: Long,
+        configuredSegmentMs: Int,
+        runId: Long,
+        isCurrentRun: (Long) -> Boolean,
+        dispatch: suspend (GestureSegment, Long) -> GestureResult,
+        onSegmentResult: (GestureSegment, GestureResult) -> Unit,
+        onComplete: () -> Unit,
+        onFailure: (String) -> Unit
+    ) {
+        stop()
+        pauseRequested = false
+        playbackJob = scope.launch(Dispatchers.Default) {
+            try {
+                val points = makeTestCurve(widthPx, heightPx)
+                val segments = segmenter.segment(points, totalDurationMs, configuredSegmentMs)
+                for (segment in segments) {
+                    while (pauseRequested && isCurrentRun(runId)) delay(16L)
+                    if (!isCurrentRun(runId)) return@launch
+
+                    val result = dispatch(segment, runId)
+                    onSegmentResult(segment, result)
+                    when (result) {
+                        GestureResult.Completed -> Unit
+                        GestureResult.Cancelled -> {
+                            if (isCurrentRun(runId)) onFailure("Android cancelled segment " + segment.index)
+                            return@launch
+                        }
+                        is GestureResult.Failed -> {
+                            if (isCurrentRun(runId)) onFailure(result.reason)
+                            return@launch
+                        }
+                    }
+                    if (segment.index < segments.size && isCurrentRun(runId)) delay(16L)
+                }
+                if (isCurrentRun(runId)) onComplete()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                if (isCurrentRun(runId)) onFailure(error.message ?: "Unknown path playback error")
+            }
+        }
+    }
+
+    fun pause() { pauseRequested = true }
+    fun resume() { pauseRequested = false }
+
+    fun stop() {
+        pauseRequested = false
+        playbackJob?.cancel()
+        playbackJob = null
+    }
+
+    companion object {
+        fun makeTestCurve(widthPx: Int, heightPx: Int): List<PointF> {
+            val centerX = widthPx / 2f
+            val centerY = heightPx / 2f
+            val amplitude = minOf(widthPx * 0.18f, 150f)
+            val scale = tanh(2.5)
+            return (0..60).map { index ->
+                val t = index / 60.0
+                val normalizedX = tanh(5.0 * (t - 0.5)) / scale
+                PointF(
+                    x = centerX + (amplitude * normalizedX).toFloat(),
+                    y = centerY - 200f + (400f * t).toFloat()
+                )
+            }
+        }
+    }
 }

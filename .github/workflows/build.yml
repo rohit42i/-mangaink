@@ -1,29 +1,59 @@
 name: Manga Inker Stage 1
 on:
   push:
-    branches: [ main, 'feature/stage-1-gesture-replay' ]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
+
 permissions:
   contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: "17"
+
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools'
-      - name: Install Android 36 SDK
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
+          packages: "platform-tools"
+
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-37" "build-tools;36.0.0" "platform-tools"
+
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.6.0'
+          gradle-version: "9.6.0"
+
+      - name: Run unit tests
+        run: gradle --no-daemon :app:testDebugUnitTest
+
       - name: Build debug APK
-        run: gradle --no-daemon clean :app:assembleDebug
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Verify merged manifest permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest="$(find app/build/intermediates -type f -name AndroidManifest.xml | grep -E 'merged_manifest.*/debug|merged_manifests.*/debug' | head -n 1 || true)"
+          if [[ -z "$manifest" ]]; then
+            echo "Could not locate the merged debug manifest."
+            find app/build/intermediates -type f -name AndroidManifest.xml
+            exit 1
+          fi
+          echo "Checking $manifest"
+          if grep -E 'android.permission.(INTERNET|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|FOREGROUND_SERVICE_MEDIA_PROJECTION)' "$manifest"; then
+            echo "A prohibited permission was merged into the app manifest."
+            exit 1
+          fi
+          echo "Merged manifest contains no network, storage, or MediaProjection permission."
+
       - uses: actions/upload-artifact@v4
         with:
           name: manga-inker-stage1-debug-apk
