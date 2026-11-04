@@ -44,4 +44,4 @@ Accessibility and overlay are separate permissions. The restricted-settings row 
 
 GitHub Actions runs unit tests, builds the debug APK and uploads the `manga-inker-stage1-debug-apk` artifact on pushes to `main` and pull requests targeting `main`.
 
-Toolchain: Android Gradle Plugin 9.5.0, Kotlin Compose compiler plugin 2.3.21, Gradle 9.6.0, JDK 17, compileSdk 37, targetSdk 36, minSdk 26.
+Toolchain: Android Gradle Plugin 9.5.0, Kotlin Compose compiler plugin 2.3.21, Gradle 9.6.0, JDK 17, compileSdk 36, targetSdk 36, minSdk 26.
