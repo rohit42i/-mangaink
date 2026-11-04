@@ -1,13 +1,11 @@
 package com.example.mangainker.gesture
 
-import android.graphics.PointF
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.ceil
 import kotlin.math.tanh
 
 class PathPlayer(private val scope: CoroutineScope) {
@@ -71,7 +69,7 @@ class PathPlayer(private val scope: CoroutineScope) {
     }
 
     companion object {
-        fun makeTestCurve(widthPx: Int, heightPx: Int): List<PointF> {
+        fun makeTestCurve(widthPx: Int, heightPx: Int): List<GesturePoint> {
             val centerX = widthPx / 2f
             val centerY = heightPx / 2f
             val amplitude = minOf(widthPx * 0.18f, 150f)
@@ -79,7 +77,7 @@ class PathPlayer(private val scope: CoroutineScope) {
             return (0..60).map { index ->
                 val t = index / 60.0
                 val normalizedX = tanh(5.0 * (t - 0.5)) / scale
-                PointF(
+                GesturePoint(
                     centerX + (amplitude * normalizedX).toFloat(),
                     centerY - 200f + (400f * t).toFloat()
                 )

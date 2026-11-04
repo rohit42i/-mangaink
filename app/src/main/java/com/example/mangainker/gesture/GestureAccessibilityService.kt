@@ -3,7 +3,6 @@ package com.example.mangainker.gesture
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
-import android.graphics.PointF
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
@@ -36,9 +35,7 @@ class GestureAccessibilityService : AccessibilityService(), GestureDispatcher {
     }
 
     override fun onInterrupt() {
-        if (::controller.isInitialized) {
-            controller.unregisterDispatcher(this, "Accessibility service interrupted")
-        }
+        if (::controller.isInitialized) controller.unregisterDispatcher(this, "Accessibility service interrupted")
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
@@ -73,7 +70,7 @@ class GestureAccessibilityService : AccessibilityService(), GestureDispatcher {
     }
 
     override suspend fun drawPath(
-        points: List<PointF>,
+        points: List<GesturePoint>,
         durationMs: Long,
         segmentIndex: Int,
         runId: Long

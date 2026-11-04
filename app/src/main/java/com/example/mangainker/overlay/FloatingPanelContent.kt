@@ -73,9 +73,9 @@ fun FloatingPanelContent(
         border = BorderStroke(1.dp, InkPalette.outline),
         modifier = Modifier.widthIn(min = 104.dp, max = 248.dp)
     ) {
-        Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(44.dp),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -164,7 +164,7 @@ fun FloatingPanelContent(
 private fun stateDot(state: SessionState): Color = when {
     state.isError -> InkPalette.accent
     state.running -> InkPalette.success
-    state.testArmed || state.serviceConnected -> InkPalette.warning
+    state.testArmed -> InkPalette.warning
     else -> Color(0xFF77777F)
 }
 

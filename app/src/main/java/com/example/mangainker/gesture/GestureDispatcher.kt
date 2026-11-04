@@ -1,6 +1,6 @@
 package com.example.mangainker.gesture
 
-import android.graphics.PointF
+data class GesturePoint(val x: Float, val y: Float)
 
 sealed interface GestureResult {
     data object Completed : GestureResult
@@ -10,7 +10,7 @@ sealed interface GestureResult {
 
 interface GestureDispatcher {
     suspend fun drawPath(
-        points: List<PointF>,
+        points: List<GesturePoint>,
         durationMs: Long,
         segmentIndex: Int,
         runId: Long

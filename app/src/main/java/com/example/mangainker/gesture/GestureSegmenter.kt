@@ -1,18 +1,17 @@
 package com.example.mangainker.gesture
 
-import android.graphics.PointF
 import kotlin.math.ceil
 import kotlin.math.floor
 
 data class GestureSegment(
     val index: Int,
-    val points: List<PointF>,
+    val points: List<GesturePoint>,
     val durationMs: Long
 )
 
 class GestureSegmenter {
     fun segment(
-        points: List<PointF>,
+        points: List<GesturePoint>,
         totalDurationMs: Long,
         configuredSegmentMs: Int
     ): List<GestureSegment> {
