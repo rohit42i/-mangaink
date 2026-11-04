@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Minimize
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.CropFree
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -62,7 +63,8 @@ import kotlin.math.roundToInt
 fun FloatingPanelContent(
     controller: SessionController,
     onDrag: (Int, Int) -> Unit,
-    onSnap: () -> Unit
+    onSnap: () -> Unit,
+    onClose: () -> Unit
 ) {
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
@@ -159,6 +161,14 @@ fun FloatingPanelContent(
                                 onClick = {
                                     moreExpanded = false
                                     controller.clearPage()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Turn overlay off") },
+                                leadingIcon = { Icon(Icons.Outlined.Close, contentDescription = null) },
+                                onClick = {
+                                    moreExpanded = false
+                                    onClose()
                                 }
                             )
                         }

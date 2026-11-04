@@ -151,7 +151,8 @@ class FloatingPanelService : Service() {
                     FloatingPanelContent(
                         controller = controller,
                         onDrag = ::movePanel,
-                        onSnap = ::snapPanel
+                        onSnap = ::snapPanel,
+                        onClose = { stopSelf() }
                     )
                 }
             }
