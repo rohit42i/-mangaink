@@ -64,7 +64,8 @@ fun FloatingPanelContent(
     controller: SessionController,
     onDrag: (Int, Int) -> Unit,
     onSnap: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    onOpenMainScreen: () -> Unit
 ) {
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
@@ -134,7 +135,9 @@ fun FloatingPanelContent(
                                 enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running,
                                 onClick = {
                                     moreExpanded = false
+                                    expanded = false
                                     controller.enableSelectionMode()
+                                    onOpenMainScreen()
                                 }
                             )
                             DropdownMenuItem(

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import com.example.mangainker.ui.MainActivity
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -152,7 +153,13 @@ class FloatingPanelService : Service() {
                         controller = controller,
                         onDrag = ::movePanel,
                         onSnap = ::snapPanel,
-                        onClose = { stopSelf() }
+                        onClose = { stopSelf() },
+                        onOpenMainScreen = {
+                            startActivity(
+                                Intent(this@FloatingPanelService, MainActivity::class.java)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            )
+                        }
                     )
                 }
             }
