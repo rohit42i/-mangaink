@@ -210,25 +210,34 @@ class MangaStudioActivity : Activity() {
         if (requestCode != REQUEST_EXPORT) return
         val uri = data?.data
         val bitmap = exportBitmap
+        exportBitmap = null
         if (resultCode != RESULT_OK || uri == null || bitmap == null) {
+            bitmap?.takeIf { !it.isRecycled }?.recycle()
             status.text = "Export cancelled."
             return
         }
+        // Ownership moves to the worker before leaving this activity result callback.
+        // onDestroy therefore cannot recycle the bitmap while compression is running.
         worker.execute {
+            var failure: String? = null
             try {
                 contentResolver.openOutputStream(uri, "w")?.use { output ->
                     if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
                         throw IllegalStateException("PNG encoder could not write the page.")
                     }
                 } ?: throw IllegalStateException("Android could not open the selected save location.")
-                runOnUiThread {
+            } catch (error: Exception) {
+                failure = error.message ?: "Could not export the page."
+            } finally {
+                if (!bitmap.isRecycled) bitmap.recycle()
+            }
+            if (!isFinishing && !isDestroyed) runOnUiThread {
+                if (failure == null) {
                     status.text = "PNG exported. Your original outline is unchanged."
                     toast("Finished page saved.")
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    status.text = error.message ?: "Could not export the page."
-                    toast(status.text.toString())
+                } else {
+                    status.text = failure
+                    toast(failure ?: "Could not export the page.")
                 }
             }
         }
@@ -289,7 +298,7 @@ class MangaStudioActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
-        worker.shutdownNow()
+        worker.shutdown()
         exportBitmap?.takeIf { !it.isRecycled }?.recycle()
         exportBitmap = null
         super.onDestroy()
