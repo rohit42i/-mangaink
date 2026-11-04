@@ -10,6 +10,10 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.View
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.withClip
+import androidx.core.graphics.withRotation
+import androidx.core.graphics.withTranslation
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -51,6 +55,7 @@ class MangaStudioView(context: Context) : View(context) {
         strokeJoin = Paint.Join.ROUND
     }
     private val pageRect = RectF()
+    private val toneClipRect = RectF()
     private val panelRect = RectF()
     private var source: Bitmap? = null
     private var settings = StudioSettings()
@@ -122,7 +127,7 @@ class MangaStudioView(context: Context) : View(context) {
     fun exportBitmap(): Bitmap? {
         val page = source ?: return null
         if (page.isRecycled || page.width <= 0 || page.height <= 0) return null
-        val output = Bitmap.createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
+        val output = createBitmap(page.width, page.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(output)
         drawDocument(canvas, page.width.toFloat(), page.height.toFloat(), page)
         return output
@@ -142,11 +147,10 @@ class MangaStudioView(context: Context) : View(context) {
         pageTop = (height - pageHeight) / 2f
         pageRect.set(pageLeft, pageTop, pageLeft + pageWidth, pageTop + pageHeight)
         canvas.drawBitmap(page, null, pageRect, bitmapPaint)
-        canvas.save()
-        canvas.translate(pageLeft, pageTop)
-        canvas.scale(scale, scale)
-        drawOverlays(canvas, page.width.toFloat(), page.height.toFloat())
-        canvas.restore()
+        canvas.withTranslation(pageLeft, pageTop) {
+            scale(scale, scale)
+            drawOverlays(this, page.width.toFloat(), page.height.toFloat())
+        }
     }
 
     private fun drawDocument(canvas: Canvas, pageWidth: Float, pageHeight: Float, page: Bitmap) {
@@ -176,26 +180,25 @@ class MangaStudioView(context: Context) : View(context) {
         val step = (70f - settings.toneDensity * 0.8f).coerceAtLeast(12f)
         tonePaint.alpha = (settings.toneOpacity * 255 / 100).coerceIn(0, 255)
         regions.forEach { region ->
-            panelRect.set(region.left * pageWidth, region.top * pageHeight, region.right * pageWidth, region.bottom * pageHeight)
-            canvas.save()
-            canvas.clipRect(panelRect)
-            var y = panelRect.top + step / 2f
-            while (y < panelRect.bottom) {
-                var x = panelRect.left + step / 2f
-                while (x < panelRect.right) {
-                    when (pattern) {
-                        TonePattern.DOTS -> canvas.drawCircle(x, y, (step * 0.075f).coerceAtLeast(0.8f), tonePaint)
-                        TonePattern.DIAGONAL -> canvas.drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint.apply { strokeWidth = 1.1f })
-                        TonePattern.CROSSHATCH -> {
-                            canvas.drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint.apply { strokeWidth = 0.9f })
-                            canvas.drawLine(x - step / 2f, y - step / 2f, x + step / 2f, y + step / 2f, tonePaint)
+            toneClipRect.set(region.left * pageWidth, region.top * pageHeight, region.right * pageWidth, region.bottom * pageHeight)
+            canvas.withClip(toneClipRect) {
+                var y = toneClipRect.top + step / 2f
+                while (y < toneClipRect.bottom) {
+                    var x = toneClipRect.left + step / 2f
+                    while (x < toneClipRect.right) {
+                        when (pattern) {
+                            TonePattern.DOTS -> drawCircle(x, y, (step * 0.075f).coerceAtLeast(0.8f), tonePaint)
+                            TonePattern.DIAGONAL -> drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint.apply { strokeWidth = 1.1f })
+                            TonePattern.CROSSHATCH -> {
+                                drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint.apply { strokeWidth = 0.9f })
+                                drawLine(x - step / 2f, y - step / 2f, x + step / 2f, y + step / 2f, tonePaint)
+                            }
                         }
+                        x += step
                     }
-                    x += step
+                    y += step
                 }
-                y += step
             }
-            canvas.restore()
         }
         tonePaint.alpha = 255
     }
@@ -217,8 +220,7 @@ class MangaStudioView(context: Context) : View(context) {
         val bubbleWidth = contentWidth + paddingX * 2f
         val bubbleHeight = contentHeight + paddingY * 2f
 
-        canvas.save()
-        canvas.rotate(item.rotationDegrees, centerX, centerY)
+        canvas.withRotation(item.rotationDegrees, centerX, centerY) {
         when (item.type) {
             LetteringType.SPEECH -> {
                 panelRect.set(centerX - bubbleWidth / 2f, centerY - bubbleHeight / 2f, centerX + bubbleWidth / 2f, centerY + bubbleHeight / 2f)
@@ -252,17 +254,16 @@ class MangaStudioView(context: Context) : View(context) {
                 effectFill.color = Color.BLACK
                 effectOutline.color = Color.WHITE
                 val effectBaseline = centerY + contentHeight * 0.35f
-                canvas.drawText(item.text.take(32), centerX, effectBaseline, effectOutline)
-                canvas.drawText(item.text.take(32), centerX, effectBaseline, effectFill)
-                canvas.restore()
-                return
+                drawText(item.text.take(32), centerX, effectBaseline, effectOutline)
+                drawText(item.text.take(32), centerX, effectBaseline, effectFill)
+                return@withRotation
             }
         }
         val startY = centerY - contentHeight / 2f + fontSize * 0.82f
         lines.forEachIndexed { index, line ->
-            canvas.drawText(line, centerX, startY + index * lineHeight, textPaint)
+            drawText(line, centerX, startY + index * lineHeight, textPaint)
         }
-        canvas.restore()
+        }
     }
 
     private fun wrap(value: String, paint: Paint, maxWidth: Float): List<String> {
