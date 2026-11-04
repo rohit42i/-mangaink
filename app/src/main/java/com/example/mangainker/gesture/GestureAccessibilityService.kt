@@ -15,7 +15,10 @@ class GestureAccessibilityService : AccessibilityService() {
         instance = this
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) { activePackage = event?.packageName?.toString().orEmpty() }
+
+    val isIbisPaintForeground: Boolean
+        get() = activePackage in setOf("jp.ne.ibis.ibispaintx.app", "jp.ne.ibis.ibispaint.app")
     override fun onInterrupt() { Log.w(TAG, "accessibility interrupted") }
 
     override fun onDestroy() {
@@ -56,6 +59,7 @@ class GestureAccessibilityService : AccessibilityService() {
 
     companion object {
         const val TAG = "MI_GESTURE"
+        @Volatile private var activePackage: String = ""
 
         @Volatile
         var instance: GestureAccessibilityService? = null
