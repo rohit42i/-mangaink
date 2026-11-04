@@ -37,6 +37,6 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.core:core-ktx:1.17.0")
     testImplementation("junit:junit:4.13.2")
 }
