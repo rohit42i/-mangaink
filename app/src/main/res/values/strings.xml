@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Manga Inker</string>
+    <string name="accessibility_description">Sends drawing gestures only after the user starts an inking session. It does not read window content.</string>
+</resources>
