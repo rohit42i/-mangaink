@@ -26,3 +26,5 @@ Android's public dispatchGesture API has no direct cancellation handle for an al
 
 ## Build
 GitHub Actions builds app-debug.apk on pushes to main and uploads manga-inker-stage1-debug-apk. The APK uses Android Gradle Plugin's standard debug signing.
+
+Toolchain: Android Gradle Plugin 9.5.0 with built-in Kotlin support, Gradle 9.6.0, JDK 17, compileSdk/targetSdk 36.
