@@ -22,7 +22,7 @@ Manga Inker is an offline Android manga and comic production assistant. Its main
 
 ### Manga Studio page-finishing tools
 
-- Six panel layout presets: single page, two horizontal, two vertical, three strips, four-grid and six-grid.
+- Seven generated panel layouts: single page, two horizontal, two vertical, three strips, four-grid, six-grid and a seven-panel 1+2+4 template. The default **Keep existing panels** option adds no borders and preserves the imported layout.
 - Adjustable panel gutters and border thickness.
 - Screentone overlays: dots, diagonal lines and crosshatch.
 - Apply tones to all panels or an individual panel.
@@ -59,10 +59,12 @@ Manga Inker is an offline Android manga and comic production assistant. Its main
 9. Tap **I can see it and undid it** to unlock full-page inking.
 10. Save a duplicate ibisPaint project before starting. Use the floating pause and stop controls as needed.
 
+The current test is a touch gesture, not a real stylus stroke. Brush width comes from the brush you selected in ibisPaint; pressure and tilt are not emulated. Do not zoom, pan, rotate or change canvas layout while strokes are being sent.
+
 Do not use a valuable original page for early testing. Changing canvas zoom, rotation, toolbars or app layout after calibration invalidates the saved coordinates; recalibrate before continuing.
 
 ## Build
 
-GitHub Actions runs unit tests, Android lint and a debug APK build on pushes to `main` and the feature integration branch. Build configuration: JDK 17, Android API 36, Build Tools 36.0.0, Gradle 8.13, Android Gradle Plugin 8.13.2 and Kotlin 2.3.0.
+GitHub Actions runs unit tests, Android lint and a debug APK build on pushes to `main` and the feature integration branch. Build configuration: JDK 17, Android API 36, Build Tools 36.0.0, Gradle 8.13, Android Gradle Plugin 8.13.2 and Kotlin Gradle Plugin 2.3.10. AndroidX Core 1.17.0 is intentionally pinned because newer Core releases require a newer Android API/AGP combination than this Android 16 build.
 
 Download `manga-inker-debug-apk` from a successful GitHub Actions run's **Artifacts** section.
