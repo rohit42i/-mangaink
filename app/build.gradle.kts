@@ -23,6 +23,11 @@ android {
 
 
     testOptions { unitTests.isReturnDefaultValues = true }
+
+    lint {
+        // API 36 is the latest stable Android platform; API 37 remains in beta.
+        disable += "OldTargetApi"
+    }
 }
 
 kotlin {
@@ -32,6 +37,6 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.core:core-ktx:1.19.1")
     testImplementation("junit:junit:4.13.2")
 }
