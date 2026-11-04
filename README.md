@@ -1,57 +1,68 @@
 # Manga Inker
 
-Manga Inker is an Android-first inking assistant for a complete outlined manga/comic page. The current build reconstructs dark outline pixels into smooth centerline paths and sends those paths into another drawing app through user-enabled Android accessibility gestures. The target drawing app is ibisPaint X.
+Manga Inker is an offline Android manga and comic production assistant. Its main job is to reconstruct an existing outlined page into smooth centreline paths and redraw those paths inside ibisPaint X using explicitly user-started Android accessibility gestures. Manga Studio adds practical page-finishing tools.
 
-## Current build: 0.2.0-alpha
+## Current build: 0.4.0-alpha
 
-Implemented in this project:
+### Inking workflow
 
-- Import one complete outlined page from the Android document picker (PNG, JPEG, WebP).
-- Decode and downsample the page locally to a maximum 1,400-pixel side.
+- Import one complete outlined manga/comic page from the Android document picker.
+- Decode artwork locally at up to a 2,000-pixel longest side to keep processing memory bounded.
 - Otsu thresholding with a manual threshold adjustment.
 - Connected-component speck removal.
-- Zhang-Suen skeletonization to reconstruct line centerlines.
-- Path tracing for open lines, closed panel borders, and branches.
+- Zhang-Suen skeletonization and centreline path reconstruction.
+- Trace open lines, closed panel borders and branches.
 - Ramer-Douglas-Peucker simplification and adjustable Catmull-Rom smoothing.
 - Detail-preservation and drawing-speed controls.
-- Page preview with reconstructed paths overlaid.
-- Four-corner draggable calibration with a projective transform for zoomed, rotated, or skewed page placement.
-- Floating controls for a test curve, start/resume, pause-after-current-stroke, stop-after-current-stroke, and session progress.
-- A required test-curve confirmation gate: full-page drawing stays locked until the user sees the curve in ibisPaint, manually undoes it, and confirms.
-- Local-only session data; no Internet permission, account, server, artwork upload, or cloud image processing.
+- Preview extracted paths over the source page.
+- Four-corner draggable page calibration with a projective transform for skewed, zoomed or rotated page placement.
+- Floating controls for a test curve, start/resume, pause-after-current-stroke, stop-after-current-stroke and progress.
+- A required test-curve gate: full-page drawing stays locked until the user sees the test curve in ibisPaint, manually undoes it and confirms.
+- Playback pauses when AccessibilityService reports that ibisPaint is no longer the foreground app. Only the official ibisPaint X and ibisPaint Android package IDs are accepted as the drawing target.
 
-## Important: what this build does not claim
+### Manga Studio page-finishing tools
 
-- Android reports whether it accepted/completed a dispatched gesture, not whether ibisPaint visibly rendered it. The user must verify the test curve.
-- Accessibility gestures emulate touch. Pressure, tilt, stylus behavior, and brush dynamics are not reproduced. ibisPaint uses the currently selected brush and its fixed touch behavior.
-- No AI model is used in this version. The first path-reconstruction stage uses classical image processing. Neural models should only be introduced after real sample pages reveal a specific problem they can solve.
-- The app has not yet been verified on the OPPO F29 5G. ColorOS may restrict background accessibility/overlay services.
+- Six panel layout presets: single page, two horizontal, two vertical, three strips, four-grid and six-grid.
+- Adjustable panel gutters and border thickness.
+- Screentone overlays: dots, diagonal lines and crosshatch.
+- Apply tones to all panels or an individual panel.
+- Place and drag speech bubbles, thought bubbles, narration boxes and sound-effect text.
+- Export a finished page as a new PNG through Android's document picker.
+- Export never overwrites the imported page or an ibisPaint project.
 
-## Recommended first device test
+### Privacy and safety
 
-1. Install the APK and open Manga Inker.
+- No Internet permission, account, cloud processing or artwork upload.
+- The app does not retrieve ibisPaint window content or capture the screen.
+- The accessibility service reads only the foreground package name from window-state events to ensure gesture playback is directed to ibisPaint; it declares `canRetrieveWindowContent=false`.
+- The user manually starts the test and inking session and can pause or stop from the floating panel.
+- Imported artwork and extracted paths remain in memory for the active session. Manga Studio exports only when the user explicitly chooses a save destination.
+
+## Important limitations
+
+- This is not an ibisPaint plugin and does not use a public ibisPaint automation API.
+- `AccessibilityService.dispatchGesture` emits touch gestures. It does not provide genuine stylus pressure, tilt, pen identity or pressure-sensitive line variation.
+- Android's gesture completion callback reports gesture dispatch completion, not proof that ibisPaint visibly rendered the mark. The visual test and manual undo are required.
+- A test on the OPPO F29 5G / ColorOS is still required. The foreground-package safety gate, overlay permission and accessibility service must be verified on the actual device.
+- The first tracing engine is classical image processing, not a neural model. It reconstructs geometry; it does not identify faces, anatomy or story content.
+
+## First device test
+
+1. Install the debug APK and open Manga Inker.
 2. Enable **Manga Inker drawing gestures** in Android Accessibility settings.
 3. Allow **Display over other apps**.
-4. Select the exact full-page outlined image you have placed in ibisPaint. Keep the target canvas visible and do not change zoom/rotation after calibration.
-5. Build paths and inspect the preview. Adjust threshold, speck removal, smoothing, and detail preservation before proceeding.
-6. Open the floating controls in ibisPaint. Drag markers 1–4 to the four corners of the page and save.
-7. Tap **Test one curve**. Check that the curve appears in the intended layer and at the correct location.
-8. Undo the test curve inside ibisPaint, then tap **I can see it and undid it**. Full-page inking is blocked until this confirmation.
-9. Save a copy of your ibisPaint project before starting a full page. Test on a duplicate page first.
-10. Start inking. Pause and stop controls take effect after the active stroke so a gesture is not cut mid-line.
+4. Import the exact outlined page that corresponds to the page open in ibisPaint.
+5. Build paths and inspect the preview. Adjust threshold, speck removal, smoothing and detail preservation.
+6. Open the floating controls. Use **Open ibisPaint X** from the panel if needed.
+7. In ibisPaint, open the correct canvas, select the intended layer and brush, then drag the four calibration handles to the page corners.
+8. Tap **Test one curve**. Check the mark, verify its location and brush, then undo it inside ibisPaint.
+9. Tap **I can see it and undid it** to unlock full-page inking.
+10. Save a duplicate ibisPaint project before starting. Use the floating pause and stop controls as needed.
 
-## Build with GitHub Actions
+Do not use a valuable original page for early testing. Changing canvas zoom, rotation, toolbars or app layout after calibration invalidates the saved coordinates; recalibrate before continuing.
 
-The workflow at `.github/workflows/android.yml` runs unit tests, Android lint, and assembles a debug APK on pushes to `main` or manual dispatch. Download `manga-inker-debug-apk` from the successful workflow run's **Artifacts** section.
+## Build
 
-Build requirements: JDK 17, Android SDK platform 35, Build Tools 35.0.0, Gradle 8.9, Android Gradle Plugin 8.7.3, Kotlin 2.0.21.
+GitHub Actions runs unit tests, Android lint and a debug APK build on pushes to `main` and the feature integration branch. Build configuration: JDK 17, Android API 36, Build Tools 36.0.0, Gradle 8.13, Android Gradle Plugin 8.13.2 and Kotlin 2.3.0.
 
-## Next development stages
-
-1. Device proof: verify that the test curve is drawn by ibisPaint on the intended current layer.
-2. Calibration proof: repeat the test at different canvas zoom and rotation settings.
-3. Geometry quality: compare path previews against real manga outlines, especially hair, faces, cross-hatching, and overlapping strokes.
-4. Long-session reliability: test pause, resume, interruption, rejected gestures, and ColorOS battery restrictions.
-5. Advanced tracing: only then evaluate optional on-device ML for local problems that the classical pipeline cannot solve.
-
-Do not use a valuable original page for early testing. Synthetic touch input can produce many separate undo entries; keep a backup.
+Download `manga-inker-debug-apk` from a successful GitHub Actions run's **Artifacts** section.

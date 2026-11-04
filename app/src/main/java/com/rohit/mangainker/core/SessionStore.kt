@@ -19,6 +19,8 @@ object SessionStore {
     @Volatile var successfulPaths: Int = 0
     @Volatile var failedPaths: Int = 0
     @Volatile var status: String = "Import an outlined page to begin"
+    @Volatile var activePackage: String = ""
+    @Volatile var isTargetAppForeground: Boolean = false
     @Volatile var drawingSpeedPxPerSecond: Float = 950f
     @Volatile var maxStrokeDurationMs: Long = 1_000L
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
@@ -37,6 +39,8 @@ object SessionStore {
         currentPath = 0
         successfulPaths = 0
         failedPaths = 0
+        testGestureCompleted = false
+        testGestureAcknowledged = false
         stopRequested = false
         status = "${plan.size} paths ready for preview"
         notifyChanged()
@@ -57,6 +61,8 @@ object SessionStore {
         currentPath = 0
         successfulPaths = 0
         failedPaths = 0
+        activePackage = ""
+        isTargetAppForeground = false
         status = "Import an outlined page to begin"
         notifyChanged()
     }

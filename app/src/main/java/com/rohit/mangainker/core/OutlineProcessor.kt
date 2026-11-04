@@ -193,13 +193,16 @@ object OutlineProcessor {
         for (index in mask.indices) {
             if (mask[index].toInt() != 0) degrees[index] = degree(index, mask, width, height).toByte()
         }
-        val visitedEdges = ByteArray(size * 8)
+        // One bit per direction per pixel avoids an eight-times-larger edge map.
+        val visitedEdges = ByteArray(size)
         val results = ArrayList<List<InkPoint>>()
 
-        fun isVisited(index: Int, direction: Int): Boolean = visitedEdges[index * 8 + direction].toInt() != 0
+        fun isVisited(index: Int, direction: Int): Boolean =
+            (visitedEdges[index].toInt() and (1 shl direction)) != 0
         fun mark(index: Int, direction: Int, next: Int) {
-            visitedEdges[index * 8 + direction] = 1
-            visitedEdges[next * 8 + ((direction + 4) % 8)] = 1
+            visitedEdges[index] = (visitedEdges[index].toInt() or (1 shl direction)).toByte()
+            val reverse = (direction + 4) % 8
+            visitedEdges[next] = (visitedEdges[next].toInt() or (1 shl reverse)).toByte()
         }
         fun walk(start: Int, firstDirection: Int): List<InkPoint> {
             val points = ArrayList<InkPoint>()

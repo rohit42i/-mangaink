@@ -1,5 +1,6 @@
 package com.rohit.mangainker
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -27,6 +28,7 @@ import com.rohit.mangainker.core.InkPoint
 import com.rohit.mangainker.core.PageCalibration
 import com.rohit.mangainker.core.SessionStore
 
+@SuppressLint("SetTextI18n")
 class FloatingPanelService : Service() {
     private lateinit var windowManager: WindowManager
     private var panel: LinearLayout? = null
@@ -45,7 +47,7 @@ class FloatingPanelService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+        if (!Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Allow display over other apps first.", Toast.LENGTH_LONG).show()
             stopSelf()
             return
@@ -60,26 +62,14 @@ class FloatingPanelService : Service() {
 
     private fun startAsForeground() {
         val channelId = "manga_inker_controls"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Manga Inker session", NotificationManager.IMPORTANCE_LOW)
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-        }
-        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, channelId)
-                .setContentTitle("Manga Inker session active")
-                .setContentText("Drawing controls are available over ibisPaint.")
-                .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setOngoing(true)
-                .build()
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-                .setContentTitle("Manga Inker session active")
-                .setContentText("Drawing controls are available over ibisPaint.")
-                .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setOngoing(true)
-                .build()
-        }
+        val channel = NotificationChannel(channelId, "Manga Inker session", NotificationManager.IMPORTANCE_LOW)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val notification = Notification.Builder(this, channelId)
+            .setContentTitle("Manga Inker session active")
+            .setContentText("Drawing controls are available over ibisPaint.")
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setOngoing(true)
+            .build()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(11, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -108,10 +98,16 @@ class FloatingPanelService : Service() {
             setPadding(0, dp(5), 0, dp(8))
         }
         root.addView(statusView)
-        root.addView(makeButton("Calibrate page corners") { showCalibration() })
+        root.addView(makeButton("Open ibisPaint X") { openIbisPaint() })
+        root.addView(makeButton("Calibrate page corners") {
+            if (!SessionStore.isTargetAppForeground) toast("Open ibisPaint X and keep its canvas visible first.")
+            else showCalibration()
+        })
         root.addView(makeButton("Test one curve") {
             val service = InkingAccessibilityService.instance
-            if (SessionStore.calibration == null) {
+            if (!SessionStore.isTargetAppForeground) {
+                toast("Open ibisPaint X and leave its canvas visible first.")
+            } else if (SessionStore.calibration == null) {
                 toast("Calibrate the four page corners first.")
             } else if (service == null) {
                 toast("Enable Manga Inker drawing access in Android settings.")
@@ -149,7 +145,20 @@ class FloatingPanelService : Service() {
         windowManager.addView(root, params)
     }
 
+    private fun openIbisPaint() {
+        val packages = listOf("jp.ne.ibis.ibispaintx.app", "jp.ne.ibis.ibispaint.app")
+        val launchIntent = packages.firstNotNullOfOrNull { packageName ->
+            runCatching { packageManager.getLaunchIntentForPackage(packageName) }.getOrNull()
+        }
+        if (launchIntent == null) toast("ibisPaint is not installed.")
+        else runCatching { launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(launchIntent) }.onFailure { toast("Could not open ibisPaint.") }
+    }
+
     private fun showCalibration() {
+        if (!SessionStore.isTargetAppForeground) {
+            toast("Open ibisPaint X and keep its canvas visible first.")
+            return
+        }
         removePanel()
         removeCalibration()
         val display = Point()
@@ -226,6 +235,8 @@ class FloatingPanelService : Service() {
         var downRawY = 0f
         var startX = 0
         var startY = 0
+        var moved = false
+        view.isClickable = true
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
@@ -233,15 +244,21 @@ class FloatingPanelService : Service() {
                     downRawY = event.rawY
                     startX = params.x
                     startY = params.y
+                    moved = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (kotlin.math.abs(event.rawX - downRawX) > dp(4) || kotlin.math.abs(event.rawY - downRawY) > dp(4)) moved = true
                     params.x = (startX + event.rawX - downRawX).toInt()
                     params.y = (startY + event.rawY - downRawY).toInt()
                     runCatching { windowManager.updateViewLayout(view, params) }
                     true
                 }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> true
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) view.performClick()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> true
                 else -> true
             }
         }
@@ -267,6 +284,7 @@ class FloatingPanelService : Service() {
         val total = SessionStore.paths.size
         val complete = SessionStore.successfulPaths
         return when {
+            !SessionStore.isTargetAppForeground -> "ibisPaint not active · open its canvas before drawing\n$complete / $total strokes ready"
             total == 0 -> "No page loaded"
             SessionStore.isRunning && SessionStore.isPaused -> "PAUSED  •  $complete / $total strokes\n${SessionStore.status}"
             !SessionStore.testGestureAcknowledged -> "TEST REQUIRED  •  $complete / $total strokes\n${SessionStore.status}"
@@ -293,9 +311,7 @@ class FloatingPanelService : Service() {
         cornerRadius = radius.toFloat()
     }
 
-    private fun overlayType(): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-        WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-    else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
+    private fun overlayType(): Int = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()

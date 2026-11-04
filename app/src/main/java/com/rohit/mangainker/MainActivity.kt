@@ -1,13 +1,12 @@
 package com.rohit.mangainker
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -19,13 +18,19 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.rohit.mangainker.core.BitmapTools
 import com.rohit.mangainker.core.OutlineProcessor
 import com.rohit.mangainker.core.SessionStore
 import com.rohit.mangainker.ui.PagePreviewView
+import com.rohit.mangainker.studio.MangaStudioActivity
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+@SuppressLint("SetTextI18n")
 class MainActivity : Activity() {
     private val worker: ExecutorService = Executors.newSingleThreadExecutor()
     private lateinit var preview: PagePreviewView
@@ -34,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var accessStatus: TextView
     private lateinit var processButton: Button
     private lateinit var openControlsButton: Button
+    private lateinit var studioButton: Button
     private lateinit var thresholdSeek: SeekBar
     private lateinit var speckSeek: SeekBar
     private lateinit var smoothSeek: SeekBar
@@ -53,9 +59,11 @@ class MainActivity : Activity() {
     }
 
     private fun buildScreen() {
-        window.statusBarColor = Color.rgb(14, 18, 24)
-        window.navigationBarColor = Color.rgb(14, 18, 24)
-        window.decorView.systemUiVisibility = 0
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
 
         val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -132,27 +140,41 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
         page.addView(actionButton("2. Allow floating controls") {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            if (!Settings.canDrawOverlays(this)) {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             } else toast("Floating controls permission is already enabled.")
         })
         openControlsButton = actionButton("Open ibisPaint inking controls") { startFloatingPanel() }
         page.addView(openControlsButton)
+        studioButton = actionButton("Open Manga Studio · panels, tones, lettering") {
+            if (SessionStore.sourceBitmap == null || SessionStore.sourceBitmap?.isRecycled != false) {
+                toast("Import a page first.")
+            } else startActivity(Intent(this, MangaStudioActivity::class.java))
+        }
+        page.addView(studioButton)
         page.addView(actionButton("Clear current page session") { clearSession() })
 
-        page.addView(section("WHAT THIS VERSION DOES NOT DO"))
-        page.addView(help("It does not generate new artwork, colour pages, letter dialogue or read your ibisPaint screen. It redraws the imported outline geometry as touch paths. Pressure and tilt are not reproduced; ibisPaint uses the brush settings you selected."))
-        page.addView(help("Imported artwork and reconstructed paths stay in memory for this session. No internet permission, upload, account or cloud processing is included."))
+        page.addView(section("HOW THE WORKFLOW WORKS"))
+        page.addView(help("Manga Inker does not read ibisPaint pixels or control its layer panel. You import the exact outlined page, calibrate its four corners over the open ibisPaint canvas, verify a test curve, then let the app redraw the reconstructed paths with your currently selected brush."))
+        page.addView(help("Manga Studio adds optional panel frames, screentones, speech and thought bubbles, narration boxes and sound-effect lettering. Those additions export as a new PNG; the imported source and your ibisPaint project are never overwritten."))
+        page.addView(help("All processing stays on this phone. Accessibility gestures do not reproduce pen pressure or tilt, and a successful Android gesture callback cannot prove that ibisPaint rendered the stroke."))
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
+            clipToPadding = false
             setBackgroundColor(Color.rgb(14, 18, 24))
             addView(page)
         }
         setContentView(scroll)
+        ViewCompat.setOnApplyWindowInsetsListener(scroll) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(0, bars.top, 0, bars.bottom)
+            insets
+        }
     }
 
     private fun chooseImage() {
+        if (SessionStore.isRunning) { toast("Pause or stop inking before changing the page."); return }
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "image/*"
@@ -174,6 +196,7 @@ class MainActivity : Activity() {
                 val bitmap = BitmapTools.decodeForProcessing(contentResolver, uri)
                 runOnUiThread {
                     preview.setPreview(null, emptyList())
+                    SessionStore.clearPlan()
                     selectedBitmap?.let { old -> if (old !== bitmap && !old.isRecycled) old.recycle() }
                     selectedBitmap = bitmap
                     SessionStore.sourceBitmap = bitmap
@@ -181,6 +204,11 @@ class MainActivity : Activity() {
                     SessionStore.imageHeight = bitmap.height
                     SessionStore.paths = emptyList()
                     SessionStore.calibration = null
+                    SessionStore.testGestureCompleted = false
+                    SessionStore.testGestureAcknowledged = false
+                    SessionStore.currentPath = 0
+                    SessionStore.successfulPaths = 0
+                    SessionStore.failedPaths = 0
                     SessionStore.status = "Page loaded. Build paths to continue."
                     preview.setPreview(bitmap, emptyList())
                     imageStatus.text = "${bitmap.width} × ${bitmap.height} px  ·  local session only"
@@ -200,6 +228,7 @@ class MainActivity : Activity() {
     }
 
     private fun processPage() {
+        if (SessionStore.isRunning) { toast("Pause or stop inking before rebuilding paths."); return }
         val bitmap = selectedBitmap ?: run {
             toast("Choose an outlined page first.")
             return
@@ -244,13 +273,13 @@ class MainActivity : Activity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             return
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+        if (!Settings.canDrawOverlays(this)) {
             toast("Allow display over other apps first.")
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             return
         }
         val intent = Intent(this, FloatingPanelService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+        startForegroundService(intent)
         toast("Controls opened. Switch to ibisPaint and calibrate the page.")
     }
 
@@ -283,9 +312,11 @@ class MainActivity : Activity() {
     private fun renderSession() {
         if (!::accessStatus.isInitialized) return
         val accessibility = if (isAccessibilityEnabled()) "Drawing access: enabled" else "Drawing access: not enabled"
-        val overlay = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)) "Floating window: allowed" else "Floating window: not allowed"
-        accessStatus.text = "$accessibility  ·  $overlay"
+        val overlay = if (Settings.canDrawOverlays(this)) "Floating window: allowed" else "Floating window: not allowed"
+        val target = if (SessionStore.isTargetAppForeground) "ibisPaint: active" else "ibisPaint: open canvas first"
+        accessStatus.text = "$accessibility  ·  $overlay  ·  $target"
         openControlsButton.isEnabled = SessionStore.paths.isNotEmpty() && !busy
+        if (::studioButton.isInitialized) studioButton.isEnabled = SessionStore.sourceBitmap?.isRecycled == false
         if (SessionStore.paths.isNotEmpty() && processingStatus.text.toString().contains("No paths")) {
             processingStatus.text = "${SessionStore.paths.size} paths ready. Review the preview before inking."
         }
@@ -347,12 +378,20 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (selectedBitmap == null) {
+            val restored = SessionStore.sourceBitmap
+            if (restored != null && !restored.isRecycled && ::preview.isInitialized) {
+                selectedBitmap = restored
+                preview.setPreview(restored, SessionStore.paths)
+                imageStatus.text = "${restored.width} × ${restored.height} px  ·  restored from this session"
+            }
+        }
         renderSession()
     }
 
     override fun onDestroy() {
         worker.shutdownNow()
-        if (isFinishing) {
+        if (isFinishing && !SessionStore.isRunning && !SessionStore.isPaused) {
             selectedBitmap = null
             SessionStore.clearPlan()
         }

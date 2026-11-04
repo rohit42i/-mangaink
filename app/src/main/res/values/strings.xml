@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Manga Inker</string>
-    <string name="accessibility_description">Sends drawing gestures only after the user starts an inking session. It does not read window content.</string>
+    <string name="accessibility_service_label">Manga Inker drawing gestures</string>
+    <string name="accessibility_description">Sends drawing gestures only after the user starts an inking session and only while ibisPaint is in the foreground. It does not read window content.</string>
 </resources>

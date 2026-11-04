@@ -5,14 +5,14 @@ plugins {
 
 android {
     namespace = "com.rohit.mangainker"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.rohit.mangainker"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-alpha"
+        targetSdk = 36
+        versionCode = 4
+        versionName = "0.4.0-alpha"
         testInstrumentationRunner = "android.test.InstrumentationTestRunner"
     }
 
@@ -27,5 +27,6 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core-ktx:1.17.0")
     testImplementation("junit:junit:4.13.2")
 }

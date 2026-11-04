@@ -8,7 +8,7 @@ import kotlin.math.ceil
 import kotlin.math.max
 
 object BitmapTools {
-    private const val MAX_SIDE = 1400
+    private const val MAX_SIDE = 2000
 
     fun decodeForProcessing(resolver: ContentResolver, uri: Uri): Bitmap {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }

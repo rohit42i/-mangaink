@@ -3,7 +3,6 @@ package com.rohit.mangainker
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
-import android.os.Build
 import android.view.accessibility.AccessibilityEvent
 import android.widget.Toast
 import com.rohit.mangainker.core.InkPoint
@@ -23,7 +22,21 @@ class InkingAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Window content is deliberately not retrieved or inspected.
+        // Only the event package is checked. Window content is never requested or read.
+        val packageName = event?.packageName?.toString().orEmpty()
+        if (packageName.isNotBlank()) {
+            SessionStore.activePackage = packageName
+            SessionStore.isTargetAppForeground = packageName in TARGET_PACKAGES
+            if (SessionStore.isRunning && !SessionStore.isTargetAppForeground) {
+                SessionStore.isPaused = true
+                SessionStore.status = "Target drawing app lost focus. Pausing after the active stroke."
+                SessionStore.notifyChanged()
+            }
+            if (!SessionStore.isTargetAppForeground && !SessionStore.isRunning) {
+                SessionStore.status = "Open ibisPaint X before testing or inking."
+                SessionStore.notifyChanged()
+            }
+        }
     }
 
     override fun onInterrupt() {
@@ -37,7 +50,7 @@ class InkingAccessibilityService : AccessibilityService() {
     }
 
     fun drawTestStroke(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || SessionStore.isRunning) return false
+        if (SessionStore.isRunning || !SessionStore.isTargetAppForeground) return false
         SessionStore.testGestureCompleted = false
         SessionStore.testGestureAcknowledged = false
         val transform = ProjectiveTransform.from(SessionStore.calibration ?: return false) ?: return false
@@ -67,7 +80,11 @@ class InkingAccessibilityService : AccessibilityService() {
     }
 
     fun startInking(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return false
+        if (!SessionStore.isTargetAppForeground) {
+            SessionStore.status = "Open ibisPaint X and keep its canvas active before starting."
+            SessionStore.notifyChanged()
+            return false
+        }
         if (!SessionStore.testGestureAcknowledged) {
             SessionStore.status = "Run the test curve, check that it appears in ibisPaint, undo it, then confirm."
             SessionStore.notifyChanged()
@@ -134,6 +151,12 @@ class InkingAccessibilityService : AccessibilityService() {
     }
 
     private fun dispatchNext() {
+        if (!SessionStore.isTargetAppForeground && !SessionStore.stopRequested) {
+            SessionStore.isPaused = true
+            SessionStore.status = "ibisPaint is no longer foreground. Session paused safely."
+            SessionStore.notifyChanged()
+            return
+        }
         if (SessionStore.stopRequested) {
             finish("Stopped by user")
             return
@@ -239,6 +262,11 @@ class InkingAccessibilityService : AccessibilityService() {
     }
 
     companion object {
+        private val TARGET_PACKAGES = setOf(
+            "jp.ne.ibis.ibispaintx.app",
+            "jp.ne.ibis.ibispaint.app"
+        )
+
         @Volatile var instance: InkingAccessibilityService? = null
             private set
     }

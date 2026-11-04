@@ -23,6 +23,7 @@ class PagePreviewView(context: Context) : View(context) {
         alpha = 205
     }
     private var bitmap: Bitmap? = null
+    private val destination = RectF()
     private var paths: List<InkPath> = emptyList()
 
     fun setPreview(source: Bitmap?, inkPaths: List<InkPath>) {
@@ -43,7 +44,7 @@ class PagePreviewView(context: Context) : View(context) {
         val targetHeight = source.height * scale
         val left = (width - targetWidth) / 2f
         val top = (height - targetHeight) / 2f
-        val destination = RectF(left, top, left + targetWidth, top + targetHeight)
+        destination.set(left, top, left + targetWidth, top + targetHeight)
         canvas.drawRoundRect(destination, 3f, 3f, paperPaint)
         canvas.drawBitmap(source, null, destination, imagePaint)
         if (paths.isNotEmpty()) {
