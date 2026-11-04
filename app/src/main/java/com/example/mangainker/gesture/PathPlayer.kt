@@ -18,7 +18,7 @@ class PathPlayer{
  private var points=emptyList<PointF>()
  private var cursor=0
  init{scope.launch{AppState.command.collect{cmd->when(cmd){is PlayerCommand.Start->start();is PlayerCommand.Pause->pause();is PlayerCommand.Resume->resume();is PlayerCommand.Stop->stop();PlayerCommand.Idle->Unit}}}}
- private fun start(){if(playback?.isActive==true)return;if(GestureAccessibilityService.instance==null){AppState.status("Accessibility is not enabled.");return};points=makeCurve();cursor=0;AppState.running(true);AppState.paused(false);AppState.status("RUNNING • Test S-curve");play()}
+ private fun start(){if(playback?.isActive==true)return;val service=GestureAccessibilityService.instance;if(service==null){AppState.status("Accessibility is not enabled.");return};if(!service.isIbisPaintForeground){AppState.status("Open ibisPaint X and tap Start in the floating panel.");return};points=makeCurve();cursor=0;AppState.running(true);AppState.paused(false);AppState.status("RUNNING • Test S-curve");play()}
  private fun pause(){if(!AppState.running.value)return;AppState.paused(true);AppState.status("PAUSED • Current gesture may finish within 500 ms");playback?.cancel();playback=null}
  private fun resume(){if(!AppState.running.value||!AppState.paused.value)return;AppState.paused(false);AppState.status("RUNNING • Resuming");play()}
  private fun stop(){playback?.cancel();playback=null;cursor=points.size;AppState.running(false);AppState.paused(false);AppState.status("STOPPED • No further segments will be sent")}
