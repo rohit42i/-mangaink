@@ -22,6 +22,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import com.rohit.mangainker.core.InkPoint
@@ -36,9 +37,12 @@ class FloatingPanelService : Service() {
     private val handles = ArrayList<Handle>()
     private val handler = Handler(Looper.getMainLooper())
     private var statusView: TextView? = null
+    private var progressView: ProgressBar? = null
     private val refresh = object : Runnable {
         override fun run() {
             statusView?.text = panelStatus()
+            val total = SessionStore.paths.size
+            progressView?.progress = if (total > 0) (SessionStore.successfulPaths * 100 / total).coerceIn(0, 100) else 0
             handler.postDelayed(this, 700L)
         }
     }
@@ -98,37 +102,45 @@ class FloatingPanelService : Service() {
             setPadding(0, dp(5), 0, dp(8))
         }
         root.addView(statusView)
-        root.addView(makeButton("Open ibisPaint X") { openIbisPaint() })
-        root.addView(makeButton("Calibrate page corners") {
-            if (!SessionStore.isTargetAppForeground) toast("Open ibisPaint X and keep its canvas visible first.")
-            else showCalibration()
-        })
-        root.addView(makeButton("Test one curve") {
-            val service = InkingAccessibilityService.instance
-            if (!SessionStore.isTargetAppForeground) {
-                toast("Open ibisPaint X and leave its canvas visible first.")
-            } else if (SessionStore.calibration == null) {
-                toast("Calibrate the four page corners first.")
-            } else if (service == null) {
-                toast("Enable Manga Inker drawing access in Android settings.")
-            } else if (!service.drawTestStroke()) {
-                toast("Android did not accept the test gesture.")
+        progressView = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            progress = 0
+            progressTintList = android.content.res.ColorStateList.valueOf(0xFF70D8E8.toInt())
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0xFF394553.toInt())
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(5)).apply {
+                bottomMargin = dp(8)
             }
-        })
-        root.addView(makeButton("I can see it and undid it") {
-            if (!SessionStore.confirmTestCurve()) {
-                toast("Run the test curve first. Confirm only after seeing it in ibisPaint and undoing it.")
-            } else {
-                toast("Test verified. Full-page inking is unlocked.")
+        }
+        root.addView(progressView)
+        root.addView(buttonRow(
+            makeButton("Open ibisPaint") { openIbisPaint() },
+            makeButton("Calibrate") {
+                if (!SessionStore.isTargetAppForeground) toast("Open ibisPaint X and keep its canvas visible first.")
+                else showCalibration()
             }
-        })
-        root.addView(makeButton("Start / Resume inking") {
+        ))
+        root.addView(buttonRow(
+            makeButton("Test curve") {
+                val service = InkingAccessibilityService.instance
+                if (!SessionStore.isTargetAppForeground) toast("Open ibisPaint X and leave its canvas visible first.")
+                else if (SessionStore.calibration == null) toast("Calibrate the four page corners first.")
+                else if (service == null) toast("Enable Manga Inker drawing access in Android settings.")
+                else if (!service.drawTestStroke()) toast("Android did not accept the test gesture.")
+            },
+            makeButton("Confirm test") {
+                if (!SessionStore.confirmTestCurve()) toast("Confirm only after seeing and undoing the test curve in ibisPaint.")
+                else toast("Test verified. Full-page inking is unlocked.")
+            }
+        ))
+        root.addView(makeButton("START  /  RESUME") {
             val service = InkingAccessibilityService.instance
             if (service == null) toast("Enable Manga Inker drawing access first.")
             else if (!service.startInking()) toast(SessionStore.status)
         })
-        root.addView(makeButton("Pause after current stroke") { InkingAccessibilityService.instance?.pauseInking() })
-        root.addView(makeButton("Stop after current stroke") { InkingAccessibilityService.instance?.stopInking() })
+        root.addView(buttonRow(
+            makeButton("Pause") { InkingAccessibilityService.instance?.pauseInking() },
+            makeButton("Stop") { InkingAccessibilityService.instance?.stopInking() }
+        ))
         root.addView(makeButton("Close controls") { stopSelf() })
 
         val params = WindowManager.LayoutParams(
@@ -294,14 +306,23 @@ class FloatingPanelService : Service() {
         }
     }
 
+    private fun buttonRow(first: Button, second: Button): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        addView(first, LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginEnd = dp(4) })
+        addView(second, LinearLayout.LayoutParams(0, dp(36), 1f).apply { marginStart = dp(4) })
+    }
+
     private fun makeButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label
         isAllCaps = false
-        textSize = 11f
-        minHeight = dp(36)
-        setPadding(dp(6), 0, dp(6), 0)
+        textSize = 10f
+        minHeight = dp(34)
+        setTextColor(0xFFEAF0F6.toInt())
+        stateListAnimator = null
+        background = rounded(0xFF2B3542.toInt(), dp(9))
+        setPadding(dp(3), 0, dp(3), 0)
         setOnClickListener { action() }
-        val layout = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
+        val layout = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(36))
         layout.bottomMargin = dp(4)
         this.layoutParams = layout
     }
@@ -320,6 +341,7 @@ class FloatingPanelService : Service() {
         panel?.let { runCatching { windowManager.removeView(it) } }
         panel = null
         statusView = null
+        progressView = null
     }
 
     private fun removeCalibration() {
