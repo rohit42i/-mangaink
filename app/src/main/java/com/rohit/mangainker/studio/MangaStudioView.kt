@@ -190,8 +190,22 @@ class MangaStudioView(context: Context) : View(context) {
                             TonePattern.DOTS -> drawCircle(x, y, (step * 0.075f).coerceAtLeast(0.8f), tonePaint)
                             TonePattern.DIAGONAL -> drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint.apply { strokeWidth = 1.1f })
                             TonePattern.CROSSHATCH -> {
-                                drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint.apply { strokeWidth = 0.9f })
+                                tonePaint.strokeWidth = 0.9f
+                                drawLine(x - step / 2f, y + step / 2f, x + step / 2f, y - step / 2f, tonePaint)
                                 drawLine(x - step / 2f, y - step / 2f, x + step / 2f, y + step / 2f, tonePaint)
+                            }
+                            TonePattern.HORIZONTAL -> {
+                                tonePaint.strokeWidth = 1.1f
+                                drawLine(toneClipRect.left, y, toneClipRect.right, y, tonePaint)
+                            }
+                            TonePattern.VERTICAL -> {
+                                tonePaint.strokeWidth = 1.1f
+                                drawLine(x, toneClipRect.top, x, toneClipRect.bottom, tonePaint)
+                            }
+                            TonePattern.SPEED_LINES -> {
+                                tonePaint.strokeWidth = 0.9f
+                                val offset = (x - toneClipRect.centerX()) * 0.22f
+                                drawLine(x - step * 0.45f, y + step * 0.45f + offset, x + step * 0.45f, y - step * 0.45f + offset, tonePaint)
                             }
                         }
                         x += step
