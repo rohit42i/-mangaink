@@ -14,10 +14,10 @@ Do not mark a device test as passed until the visible result has been checked on
 ## First installation and updates
 
 - [ ] Remove the old Stage 1 debug build once (its signing key is different).
-- [ ] Install the signed app-release.apk from the private mobile-latest GitHub release.
+- [ ] Install app-release.apk from the manga-inker-install-once-release-apk artifact in the successful feature-branch Actions run (or the mobile-latest release after PR #5 is merged).
 - [ ] Create a fine-grained GitHub token for rohit42i/-mangaink with Contents: Read-only.
 - [ ] Save the token in Settings → GitHub app updates.
-- [ ] Confirm the app can check the private release and verify the APK checksum.
+- [ ] After PR #5 is merged, confirm the app can check mobile-latest and verify the APK checksum.
 - [ ] Allow Manga Inker to install unknown apps when Android requests it.
 - [ ] Confirm Android opens the install confirmation for a newer release.
 - [ ] Confirm an update installs over the existing Manga Inker app without uninstalling it.

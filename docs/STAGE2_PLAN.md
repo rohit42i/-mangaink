@@ -33,8 +33,8 @@ The repair branch contains the following implementation:
 - Leaving ibisPaint or disconnecting Accessibility stops the run.
 
 ## GitHub updates
-- Pushes to the repair branch, and later to main after merge, build a signed release APK with a stable signing identity.
-- Workflow updates the private `mobile-latest` GitHub release and its SHA-256 manifest.
+- Pushes to the repair branch build the signed first-install APK artifact. Pushes to main after PR #5 is merged publish the signed release.
+- The main-branch workflow updates the private `mobile-latest` GitHub release and its SHA-256 manifest. Feature-branch workflows do not publish releases because their commits modify the workflow file relative to the default branch.
 - The app checks the private release using a user-provided fine-grained Contents: Read token encrypted with Android Keystore.
 - The app downloads and checksum-verifies a newer APK, then opens Android's package installer. Android approval is still required.
 - The repository must remain private because the update signing key is stored in its CI source. Do not publish the repository or keystore.
