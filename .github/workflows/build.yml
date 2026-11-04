@@ -117,16 +117,12 @@ jobs:
         run: |
           set -euo pipefail
           gh release delete mobile-latest --cleanup-tag --yes || true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --allow-empty -m "Publish Manga Inker release ${VERSION_NAME}"
-          git tag -f mobile-latest HEAD
-          git push origin refs/tags/mobile-latest --force
           gh release create mobile-latest \
             app/build/outputs/apk/release/app-release.apk \
             update.json \
             --title "Manga Inker latest" \
             --notes "Automatic update build ${VERSION_NAME}. Commit: ${GITHUB_SHA}" \
+            --target "$GITHUB_SHA" \
             --prerelease
 
       - uses: actions/upload-artifact@v4
