@@ -1,58 +1,90 @@
-# Stage 1 device test record
+# Manga Inker device test record
 
-Do not mark a test as passed until the visible result has been checked on the phone. An Android `dispatchGesture` callback alone is not proof that ibisPaint rendered a line.
+Do not mark a device test as passed until the visible result has been checked on the OPPO F29. An Android dispatch callback alone does not prove that ibisPaint rendered a mark.
 
-## Device and app details
+## Device
 
 - Date and time:
 - Device: OPPO F29 5G
-- Android version:
-- ColorOS version:
+- Android / ColorOS:
 - Manga Inker version:
 - ibisPaint X version:
-- Canvas size:
-- Selected brush:
-- Brush size and opacity:
+- Canvas size and selected brush:
 
-## Setup checklist
+## First installation and updates
 
-- [ ] Debug APK installed.
-- [ ] Restricted settings unlocked where Android 13+ requires it.
-- [ ] Accessibility service enabled.
-- [ ] Display over other apps enabled.
-- [ ] Main screen shows both permissions as Granted.
-- [ ] Floating panel appears and can be dragged and snapped to an edge.
-- [ ] Collapsed panel shows the state dot and expand handle.
-- [ ] Running screen border appears only while a test is active.
+- [ ] Remove the old Stage 1 debug build once (its signing key is different).
+- [ ] Install the signed app-release.apk from the private mobile-latest GitHub release.
+- [ ] Create a fine-grained GitHub token for rohit42i/-mangaink with Contents: Read-only.
+- [ ] Save the token in Settings → GitHub app updates.
+- [ ] Confirm the app can check the private release and verify the APK checksum.
+- [ ] Allow Manga Inker to install unknown apps when Android requests it.
+- [ ] Confirm Android opens the install confirmation for a newer release.
+- [ ] Confirm an update installs over the existing Manga Inker app without uninstalling it.
 
-## Gesture proof
+## Permissions and floating panel
 
-- [ ] Open ibisPaint X and select the brush recorded above.
-- [ ] Tap Test stroke in Manga Inker.
-- [ ] Switch to ibisPaint X and tap Start on the floating panel.
-- [ ] Observe whether a line appears.
-- [ ] Check whether the line is an S-curve and approximately 400 px tall.
-- [ ] Answer the in-app result dialog with Yes, No or Partly.
-- [ ] Confirm the answer appears in the `MI_GESTURE` log.
-- [ ] Undo the test mark in ibisPaint, if one appeared.
+- [ ] On Android 13+, allow restricted settings for this trusted build if requested.
+- [ ] Enable Manga Inker in Accessibility settings.
+- [ ] Allow Display over other apps.
+- [ ] Start the floating panel and verify its persistent notification.
+- [ ] Drag the compact bubble; verify it snaps to either edge.
+- [ ] Expand, minimize and reopen the panel.
+- [ ] Verify More menu actions are available and enabled only when applicable.
 
-## Controls and recovery
+## Import and full-page scan
 
-- [ ] Pause waits until the active segment completes.
-- [ ] Resume continues with the next segment.
-- [ ] Stop prevents later segments from being dispatched.
-- [ ] Volume-down long press stops a running session.
-- [ ] Leaving ibisPaint stops the run.
-- [ ] Disabling Accessibility mid-run stops the run and displays a recovery message.
-- [ ] Debug log viewer shows segment index, duration and dispatch result.
+- [ ] Import a complete PNG, JPEG or WebP page.
+- [ ] Confirm the entire source image appears in the preview.
+- [ ] Tap Scan full page and verify blue paths appear over the full page.
+- [ ] Confirm path count, foreground pixels, centreline pixels and removed specks are sensible.
+- [ ] Adjust threshold and speck removal; rebuild.
+- [ ] Adjust smoothing and detail preservation; rebuild.
+- [ ] Import a blank or unsupported image and verify a useful error is shown.
 
-## Result
+## Selected-area scan
 
-- Visible line result: **Not tested**
-- Overall Stage 1 result: **Not tested**
-- Notes:
-- MI_GESTURE log excerpt:
-- Unexpected marks or interruptions:
+- [ ] Tap Select scan area.
+- [ ] Drag a rectangle over the page preview.
+- [ ] Verify the selected rectangle is shown in the original page position.
+- [ ] Tap Scan selected area.
+- [ ] Verify extracted paths remain in the correct position relative to the source page.
+- [ ] Tap Scan full page and verify the selection resets.
+
+## Calibration and test stroke
+
+- [ ] Open the matching source page in ibisPaint X.
+- [ ] Open More → Calibrate page corners.
+- [ ] Drag markers 1–4 to top-left, top-right, bottom-right and bottom-left of the visible page.
+- [ ] Save corners; verify crossed/collapsed corners are rejected.
+- [ ] Run the test stroke.
+- [ ] Confirm the line appears in the correct canvas region and layer.
+- [ ] Undo the test stroke in ibisPaint.
+- [ ] Confirm Yes only after verifying it appeared and was undone.
+
+## Trace controls and recovery
+
+- [ ] Start tracing on a duplicate canvas.
+- [ ] Verify path progress advances and outlines follow the source.
+- [ ] Pause; ensure no new segment starts after the active segment finishes.
+- [ ] Resume; ensure tracing continues.
+- [ ] Stop; ensure queued paths are not dispatched afterward.
+- [ ] Test volume-down long-press stop.
+- [ ] Leave ibisPaint and verify tracing stops.
+- [ ] Interrupt/disable Accessibility and verify recovery state.
+- [ ] Verify running border appears only during active trace.
+
+## Results
+
+- Automated CI: record workflow URL and result.
+- Import/full-page scan: **Not device tested**
+- Selected-area scan: **Not device tested**
+- Calibration: **Not device tested**
+- Visible test stroke: **Not device tested**
+- Full-page and selected-area tracing: **Not device tested**
+- Pause/resume/stop: **Not device tested**
+- In-app update/install: **Not device tested**
+- Notes and MI_GESTURE log excerpt:
 - Retest needed:
 
-Only change the result above after completing the checks on the OPPO F29.
+Only update these results after testing the physical phone.

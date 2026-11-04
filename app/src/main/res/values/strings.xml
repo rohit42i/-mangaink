@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">Manga Inker</string>
     <string name="accessibility_service_label">Manga Inker gesture access</string>
-    <string name="accessibility_description">Sends touch gestures to the app currently in the foreground when you start a test. It does not retrieve window content.</string>
+    <string name="accessibility_description">Sends touch paths to ibisPaint only after the user starts a test or tracing session. It does not retrieve window content.</string>
 </resources>

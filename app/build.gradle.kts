@@ -3,6 +3,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val buildVersionCode = providers.gradleProperty("VERSION_CODE").orNull?.toIntOrNull() ?: 4
+val buildVersionName = providers.gradleProperty("VERSION_NAME").orNull ?: "1.1.0-alpha"
+
 android {
     namespace = "com.example.mangainker"
     compileSdk = 36
@@ -11,9 +14,25 @@ android {
         applicationId = "com.example.mangainker"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.1-stage1"
+        versionCode = buildVersionCode
+        versionName = buildVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file(".ci/manga-inker-release.jks")
+            storePassword = "MI_Release_2026_Private"
+            keyAlias = "mangainker-release"
+            keyPassword = "MI_Release_2026_Private"
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     buildFeatures { compose = true }

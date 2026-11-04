@@ -6,61 +6,86 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.tanh
+import kotlin.math.hypot
 
 class PathPlayer(private val scope: CoroutineScope) {
     private val segmenter = GestureSegmenter()
     private var playbackJob: Job? = null
     @Volatile private var pauseRequested = false
 
-    fun start(
-        widthPx: Int,
-        heightPx: Int,
-        totalDurationMs: Long,
+    fun startPaths(
+        paths: List<List<GesturePoint>>,
+        speedPxPerSecond: Float,
         configuredSegmentMs: Int,
         runId: Long,
         isCurrentRun: (Long) -> Boolean,
         dispatch: suspend (GestureSegment, Long) -> GestureResult,
-        onSegmentResult: (GestureSegment, GestureResult) -> Unit,
+        onSegmentResult: (Int, GestureSegment, GestureResult) -> Unit,
+        onPathProgress: (Int, Int) -> Unit,
         onComplete: () -> Unit,
-        onFailure: (String) -> Unit
+        onFailure: (String) -> Unit,
+        durationOverrideMs: Long? = null
     ) {
         stop()
         pauseRequested = false
         playbackJob = scope.launch(Dispatchers.Default) {
             try {
-                val points = makeTestCurve(widthPx, heightPx)
-                val segments = segmenter.segment(points, totalDurationMs, configuredSegmentMs)
-                for (segment in segments) {
-                    while (pauseRequested && isCurrentRun(runId)) delay(16L)
+                val validPaths = paths.filter { it.size >= 2 }
+                if (validPaths.isEmpty()) {
+                    onFailure("No drawable outline paths were available.")
+                    return@launch
+                }
+                var globalSegment = 0
+                validPaths.forEachIndexed { pathIndex, points ->
                     if (!isCurrentRun(runId)) return@launch
-
-                    val result = dispatch(segment, runId)
-                    onSegmentResult(segment, result)
-                    when (result) {
-                        GestureResult.Completed -> Unit
-                        GestureResult.Cancelled -> {
-                            if (isCurrentRun(runId)) onFailure("Android cancelled segment " + segment.index)
-                            return@launch
-                        }
-                        is GestureResult.Failed -> {
-                            if (isCurrentRun(runId)) onFailure(result.reason)
-                            return@launch
-                        }
+                    val length = pathLength(points)
+                    if (!length.isFinite() || length < 1f) {
+                        onFailure("Outline path " + (pathIndex + 1) + " has invalid coordinates.")
+                        return@launch
                     }
-                    if (segment.index < segments.size && isCurrentRun(runId)) delay(16L)
+                    val duration = durationOverrideMs ?: (
+                        (length / speedPxPerSecond.coerceIn(100f, 3_000f)) * 1_000f
+                    ).toLong().coerceIn(80L, 60_000L)
+                    val segments = segmenter.segment(points, duration, configuredSegmentMs)
+
+                    for (segment in segments) {
+                        while (pauseRequested && isCurrentRun(runId)) delay(16L)
+                        if (!isCurrentRun(runId)) return@launch
+                        val result = dispatch(segment, runId)
+                        globalSegment++
+                        onSegmentResult(pathIndex + 1, segment.copy(index = globalSegment), result)
+                        when (result) {
+                            GestureResult.Completed -> Unit
+                            GestureResult.Cancelled -> {
+                                if (isCurrentRun(runId)) onFailure("Android cancelled path " + (pathIndex + 1) + ".")
+                                return@launch
+                            }
+                            is GestureResult.Failed -> {
+                                if (isCurrentRun(runId)) onFailure(result.reason)
+                                return@launch
+                            }
+                        }
+                        if (isCurrentRun(runId)) delay(16L)
+                    }
+                    onPathProgress(pathIndex + 1, validPaths.size)
+                    if (pathIndex < validPaths.lastIndex && isCurrentRun(runId)) delay(45L)
                 }
                 if (isCurrentRun(runId)) onComplete()
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Exception) {
-                if (isCurrentRun(runId)) onFailure(error.message ?: "Unknown path playback error")
+                if (isCurrentRun(runId)) onFailure(error.message ?: "Unknown path playback error.")
             }
         }
     }
 
-    fun pause() { pauseRequested = true }
-    fun resume() { pauseRequested = false }
+    fun pause() {
+        pauseRequested = true
+    }
+
+    fun resume() {
+        pauseRequested = false
+    }
 
     fun stop() {
         pauseRequested = false
@@ -68,20 +93,14 @@ class PathPlayer(private val scope: CoroutineScope) {
         playbackJob = null
     }
 
-    companion object {
-        fun makeTestCurve(widthPx: Int, heightPx: Int): List<GesturePoint> {
-            val centerX = widthPx / 2f
-            val centerY = heightPx / 2f
-            val amplitude = minOf(widthPx * 0.18f, 150f)
-            val scale = tanh(2.5)
-            return (0..60).map { index ->
-                val t = index / 60.0
-                val normalizedX = tanh(5.0 * (t - 0.5)) / scale
-                GesturePoint(
-                    centerX + (amplitude * normalizedX).toFloat(),
-                    centerY - 200f + (400f * t).toFloat()
-                )
-            }
+    private fun pathLength(points: List<GesturePoint>): Float {
+        var length = 0f
+        for (index in 1 until points.size) {
+            length += hypot(
+                (points[index].x - points[index - 1].x).toDouble(),
+                (points[index].y - points[index - 1].y).toDouble()
+            ).toFloat()
         }
+        return length
     }
 }

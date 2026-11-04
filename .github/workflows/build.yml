@@ -1,19 +1,22 @@
-name: Manga Inker Stage 1
+name: Manga Inker Android CI
+
 on:
   push:
-    branches: [ main, 'feature/stage-1-gesture-replay' ]
+    branches: [ main, 'feature/stage-1-gesture-replay', 'feature/full-page-outline-repair' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build:
+  verify-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -31,32 +34,100 @@ jobs:
         with:
           gradle-version: "9.6.0"
 
+      - name: Set build version
+        shell: bash
+        run: |
+          echo "VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=1.1.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+
       - name: Run unit tests
-        run: gradle --no-daemon :app:testDebugUnitTest
+        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" clean :app:testDebugUnitTest
+
+      - name: Run Android lint
+        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:lintDebug
 
       - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
+        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:assembleDebug
+
+      - name: Build signed release APK
+        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:assembleRelease
 
       - name: Verify merged manifest permissions
         shell: bash
         run: |
           set -euo pipefail
-          manifest="$(find app/build/intermediates -type f -name AndroidManifest.xml | grep -E 'merged_manifest.*/debug|merged_manifests.*/debug' | head -n 1 || true)"
+          manifest="$(find app/build/intermediates -type f -name AndroidManifest.xml | grep -E 'merged_manifest.*/release|merged_manifests.*/release' | head -n 1 || true)"
           if [[ -z "$manifest" ]]; then
-            echo "Could not locate the merged debug manifest."
+            echo "Could not locate the merged release manifest."
             find app/build/intermediates -type f -name AndroidManifest.xml
             exit 1
           fi
           echo "Checking $manifest"
-          if grep -E 'android.permission.(INTERNET|READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|FOREGROUND_SERVICE_MEDIA_PROJECTION)' "$manifest"; then
-            echo "A prohibited permission was merged into the app manifest."
+          if grep -E 'android.permission.(READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|FOREGROUND_SERVICE_MEDIA_PROJECTION)' "$manifest"; then
+            echo "A prohibited broad-storage or MediaProjection permission was merged into the app manifest."
             exit 1
           fi
-          echo "Merged manifest contains no network, storage, or MediaProjection permission."
+          grep -q 'android.permission.INTERNET' "$manifest"
+          grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$manifest"
+          echo "Verified: network is for the private GitHub updater; no broad-storage or MediaProjection permission."
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
         with:
-          name: manga-inker-stage1-debug-apk
+          name: manga-inker-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload signed first-install APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: manga-inker-install-once-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create update manifest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/full-page-outline-repair'
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="app/build/outputs/apk/release/app-release.apk"
+          sha="$(sha256sum "$apk" | cut -d ' ' -f 1)"
+          cat > update.json <<EOF
+          {
+            "packageName": "com.example.mangainker",
+            "versionCode": $VERSION_CODE,
+            "versionName": "$VERSION_NAME",
+            "sha256": "$sha",
+            "commit": "$GITHUB_SHA"
+          }
+          EOF
+          cat update.json
+
+      - name: Publish latest private GitHub update
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/full-page-outline-repair'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete mobile-latest --cleanup-tag --yes || true
+          git tag -f mobile-latest "$GITHUB_SHA"
+          git push origin refs/tags/mobile-latest --force
+          gh release create mobile-latest \
+            app/build/outputs/apk/release/app-release.apk \
+            update.json \
+            --title "Manga Inker latest" \
+            --notes "Automatic update build ${VERSION_NAME}. Commit: ${GITHUB_SHA}" \
+            --prerelease
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: manga-inker-verification-reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
           retention-days: 14

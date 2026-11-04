@@ -22,20 +22,25 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Minimize
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.CropFree
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,11 +51,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.example.mangainker.core.SessionCommand
 import com.example.mangainker.core.SessionController
 import com.example.mangainker.core.SessionState
 import com.example.mangainker.ui.InkPalette
-import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 @Composable
@@ -61,10 +66,11 @@ fun FloatingPanelContent(
 ) {
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
+    var moreExpanded by remember { mutableStateOf(false) }
     var showStopConfirmation by remember { mutableStateOf(false) }
 
-    LaunchedEffect(expanded, state.running, state.paused, state.testArmed, state.panelAutoCollapseMs) {
-        if (expanded && !state.running && !state.paused && !state.testArmed && state.panelAutoCollapseMs > 0L) {
+    LaunchedEffect(expanded, state.running, state.paused, state.calibrating, state.panelAutoCollapseMs) {
+        if (expanded && !state.running && !state.calibrating && state.panelAutoCollapseMs > 0L) {
             delay(state.panelAutoCollapseMs)
             expanded = false
         }
@@ -73,17 +79,17 @@ fun FloatingPanelContent(
     Surface(
         color = InkPalette.surface,
         contentColor = InkPalette.primaryText,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         border = BorderStroke(1.dp, InkPalette.outline),
-        modifier = Modifier.widthIn(min = if (expanded) 248.dp else 82.dp, max = 272.dp)
+        modifier = Modifier.widthIn(min = if (expanded) 276.dp else 68.dp, max = 292.dp)
     ) {
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+        Column(Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(44.dp),
+                modifier = Modifier.fillMaxWidth().height(42.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(34.dp).pointerInput(Unit) {
+                    modifier = Modifier.size(32.dp).pointerInput(Unit) {
                         detectDragGestures(
                             onDragEnd = onSnap,
                             onDrag = { change, dragAmount ->
@@ -94,13 +100,68 @@ fun FloatingPanelContent(
                     },
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(Modifier.size(11.dp).clip(CircleShape).background(stateDot(state)))
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(stateDot(state)))
                 }
 
                 if (expanded) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
-                        Text("Manga Inker", style = MaterialTheme.typography.labelLarge)
-                        Text(panelStatus(state), color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text("MANGA INKER", style = MaterialTheme.typography.labelLarge, letterSpacing = 0.7.sp)
+                        Text(panelStatus(state), color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+                    }
+                    Box {
+                        IconButton(onClick = { moreExpanded = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "More controls")
+                        }
+                        DropdownMenu(
+                            expanded = moreExpanded,
+                            onDismissRequest = { moreExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Calibrate page corners") },
+                                leadingIcon = { Icon(Icons.Outlined.CropFree, contentDescription = null) },
+                                onClick = {
+                                    moreExpanded = false
+                                    controller.beginCalibration()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Select scan area") },
+                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running,
+                                onClick = {
+                                    moreExpanded = false
+                                    controller.enableSelectionMode()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Scan selected area") },
+                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running &&
+                                    (state.selectedLeft > 0f || state.selectedTop > 0f ||
+                                        state.selectedRight < 1f || state.selectedBottom < 1f),
+                                onClick = {
+                                    moreExpanded = false
+                                    controller.scanPage()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Scan full page") },
+                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running,
+                                onClick = {
+                                    moreExpanded = false
+                                    controller.scanFullPage()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Clear page session") },
+                                enabled = !state.running && !state.scanInProgress,
+                                onClick = {
+                                    moreExpanded = false
+                                    controller.clearPage()
+                                }
+                            )
+                        }
                     }
                 } else {
                     Spacer(Modifier.weight(1f))
@@ -109,47 +170,97 @@ fun FloatingPanelContent(
                 IconButton(onClick = { expanded = !expanded }) {
                     Icon(
                         if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = if (expanded) "Collapse" else "Expand"
+                        contentDescription = if (expanded) "Collapse controls" else "Expand controls"
                     )
                 }
             }
 
             if (expanded) {
                 androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
-                Column(Modifier.padding(top = 10.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("SESSION CONTROL", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f), letterSpacing = 0.8.sp)
-                        Text(if (state.running) "ACTIVE" else if (state.testArmed) "ARMED" else "STANDBY", color = if (state.running) InkPalette.success else InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+                Column(
+                    Modifier.padding(top = 10.dp, bottom = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Text(
+                        if (state.calibrating) "CALIBRATION ACTIVE"
+                        else if (state.running && state.paused) "PAUSED"
+                        else if (state.running) "TRACING"
+                        else if (state.testGestureVerified) "READY TO TRACE"
+                        else "TEST REQUIRED",
+                        color = if (state.running) InkPalette.success else InkPalette.secondaryText,
+                        style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 0.8.sp
+                    )
+                    Text(
+                        state.message,
+                        color = if (state.isError) InkPalette.warning else InkPalette.secondaryText,
+                        fontSize = 11.sp,
+                        maxLines = 3
+                    )
+
+                    if (state.running && !state.totalPaths.equals(0)) {
+                        LinearProgressIndicator(
+                            progress = state.progress.coerceIn(0f, 1f),
+                            modifier = Modifier.fillMaxWidth(),
+                            color = InkPalette.accent,
+                            trackColor = InkPalette.raised
+                        )
+                        Text(
+                            "Path " + state.currentPath + " / " + state.totalPaths +
+                                "  ·  " + state.completedPaths + " complete",
+                            color = InkPalette.secondaryText,
+                            style = MaterialTheme.typography.labelSmall
+                        )
                     }
-                    Text(state.message, color = InkPalette.secondaryText, fontSize = 11.sp, maxLines = 2)
+
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Button(
-                            onClick = { controller.dispatch(SessionCommand.Start) },
-                            enabled = state.testArmed && !state.running,
-                            colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent, disabledContainerColor = InkPalette.raised),
-                            modifier = Modifier.weight(1.15f).height(42.dp),
+                            onClick = {
+                                controller.dispatch(
+                                    if (state.testGestureVerified) SessionCommand.Start else SessionCommand.RunTest
+                                )
+                            },
+                            enabled = !state.running && !state.calibrating &&
+                                state.serviceConnected && state.ibisPaintForeground &&
+                                if (state.testGestureVerified) state.paths.isNotEmpty() && state.calibration != null
+                                else state.calibration != null,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = InkPalette.accent,
+                                disabledContainerColor = InkPalette.raised
+                            ),
+                            modifier = Modifier.weight(1.2f).height(42.dp),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(17.dp))
                             Spacer(Modifier.size(4.dp))
-                            Text("Start", fontSize = 13.sp)
+                            Text(if (state.testGestureVerified) "Start" else "Test", fontSize = 13.sp)
                         }
+
                         OutlinedButton(
-                            onClick = { controller.dispatch(if (state.paused) SessionCommand.Resume else SessionCommand.Pause) },
+                            onClick = {
+                                controller.dispatch(
+                                    if (state.paused) SessionCommand.Resume else SessionCommand.Pause
+                                )
+                            },
                             enabled = state.running,
                             modifier = Modifier.weight(1f).height(42.dp),
                             shape = RoundedCornerShape(10.dp)
                         ) {
-                            Icon(if (state.paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(
+                                if (state.paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(Modifier.size(3.dp))
                             Text(if (state.paused) "Resume" else "Pause", fontSize = 12.sp)
                         }
+
                         OutlinedButton(
                             onClick = {
                                 if (controller.shouldConfirmStop()) showStopConfirmation = true
                                 else controller.dispatch(SessionCommand.Stop)
                             },
-                            enabled = state.running || state.testArmed,
+                            enabled = state.running,
                             modifier = Modifier.size(42.dp),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
@@ -157,11 +268,17 @@ fun FloatingPanelContent(
                             Icon(Icons.Outlined.Stop, contentDescription = "Stop", tint = InkPalette.accent)
                         }
                     }
+
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Floating tool overlay", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                        Text(
+                            if (state.testGestureVerified) "Full-page outline tracing" else "Test before tracing",
+                            color = InkPalette.secondaryText,
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.weight(1f)
+                        )
                         TextButton(onClick = { expanded = false }) {
                             Icon(Icons.Outlined.Minimize, contentDescription = null, modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.size(4.dp))
+                            Spacer(Modifier.size(3.dp))
                             Text("Minimize", color = InkPalette.secondaryText)
                         }
                     }
@@ -173,8 +290,8 @@ fun FloatingPanelContent(
     if (showStopConfirmation) {
         AlertDialog(
             onDismissRequest = { showStopConfirmation = false },
-            title = { Text("Stop this session?") },
-            text = { Text("This run has been active for more than 30 seconds.") },
+            title = { Text("Stop tracing?") },
+            text = { Text("This session has been running for more than 30 seconds. Stop after the active gesture finishes.") },
             confirmButton = {
                 TextButton(onClick = {
                     showStopConfirmation = false
@@ -191,15 +308,17 @@ fun FloatingPanelContent(
 
 private fun stateDot(state: SessionState): Color = when {
     state.isError -> InkPalette.accent
+    state.running && state.paused -> InkPalette.warning
     state.running -> InkPalette.success
-    state.testArmed -> InkPalette.warning
+    state.testGestureVerified -> InkPalette.success
     else -> Color(0xFF77777F)
 }
 
 private fun panelStatus(state: SessionState): String = when {
     state.isError -> "Error"
+    state.calibrating -> "Calibrating"
     state.running && state.paused -> "Paused"
-    state.running -> "Running"
-    state.testArmed -> "Ready"
+    state.running -> "Tracing"
+    state.testGestureVerified -> "Ready to trace"
     else -> "Idle"
 }

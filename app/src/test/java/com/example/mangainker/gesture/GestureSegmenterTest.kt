@@ -19,6 +19,21 @@ class GestureSegmenterTest {
     }
 
     @Test
+    fun longTwoPointLineIsSplitIntoDistinctContiguousPieces() {
+        val points = listOf(GesturePoint(0f, 20f), GesturePoint(900f, 20f))
+        val segments = GestureSegmenter().segment(points, 1_500L, 500)
+
+        assertTrue(segments.size == 3)
+        assertTrue(segments.all { it.points.size >= 2 && it.durationMs <= 500L })
+        assertTrue(segments[0].points.first().x == 0f)
+        assertTrue(segments[0].points.last().x == 300f)
+        assertTrue(segments[1].points.first().x == 300f)
+        assertTrue(segments[1].points.last().x == 600f)
+        assertTrue(segments[2].points.first().x == 600f)
+        assertTrue(segments[2].points.last().x == 900f)
+    }
+
+    @Test
     fun segmentsShareBoundaryPointsAndPreserveOrder() {
         val points = (0..60).map { GesturePoint(it.toFloat(), (it * 2).toFloat()) }
         val segments = GestureSegmenter().segment(points, 1_500L, 500)

@@ -1,46 +1,43 @@
-# Stage 2 plan
+# Full-page and selected-area scanning
 
-Planning notes only. No Stage 2 code or dependencies are included in the Stage 1 build.
+The repair branch contains the following implementation:
 
-## Image import
+## Import and image lifetime
+- Android document picker accepts supported image types.
+- Bitmap decoding is local and downsamples the longest side to at most 1,400 px.
+- Transparent pixels composite onto white for grayscale conversion.
+- Image and paths remain in the active app session only.
 
-- Use the Android system photo picker or Storage Access Framework document picker.
-- Retain the returned content URI only for the active session.
-- Do not request broad storage permissions or copy the imported artwork into app storage.
+## Scan modes
+- Full-page scan uses the entire imported image.
+- Selected-area scan uses a drag rectangle drawn directly on the image preview.
+- The chosen crop is processed independently; preview paths are positioned back over the original full-page bitmap.
+- The selected crop is calibrated to the corresponding visible canvas area. Re-scan invalidates prior calibration and test confirmation.
 
-## Preprocessing
+## Outline extraction
+- Otsu global threshold with offset control.
+- Eight-connected component filtering for isolated specks.
+- Zhang-Suen skeletonization with bounded iterations.
+- Pixel-neighbour graph tracing for open paths, branches and closed loops.
+- Ramer-Douglas-Peucker simplification.
+- Catmull-Rom smoothing blended toward source geometry.
+- Preview over the source page, with scan metrics.
 
-1. Decode the selected image from its content URI.
-2. Convert the working image to grayscale.
-3. Apply adaptive thresholding to separate line art from the page.
-4. Use morphological cleanup to reduce isolated specks and close small gaps.
-5. Keep preprocessing results in memory and release image buffers when the session ends.
+## Calibration and playback
+- Four draggable corners are validated as a non-degenerate convex quadrilateral.
+- A projective transform maps normalized scan coordinates to the calibrated ibisPaint region.
+- The user must verify and undo a test stroke before full-page or selected-area tracing.
+- Long paths are split by arc length into contiguous pieces of at most 500 ms.
+- Pause takes effect between accepted gesture segments.
+- Stop closes the dispatch gate immediately and cancels queued segments. An already accepted Android gesture may finish.
+- Leaving ibisPaint or disconnecting Accessibility stops the run.
 
-## Centerline extraction
+## GitHub updates
+- Pushes to the repair branch build a signed release APK with a stable signing identity.
+- Workflow updates the private `mobile-latest` GitHub release and its SHA-256 manifest.
+- The app checks the private release using a user-provided fine-grained Contents: Read token encrypted with Android Keystore.
+- The app downloads and checksum-verifies a newer APK, then opens Android's package installer. Android approval is still required.
+- The repository must remain private because the update signing key is stored in its CI source. Do not publish the repository or keystore.
 
-- Skeletonize the thresholded line art to one-pixel centerlines.
-- Detect endpoints, junctions and connected components.
-- Preserve component identity so paths can be inspected before any gesture is sent.
-
-## Graph tracing and path preparation
-
-- Represent centerlines as a graph of pixels, endpoints and junctions.
-- Trace connected branches and order candidate paths.
-- Apply Douglas-Peucker simplification to reduce redundant points.
-- Support Catmull-Rom or cubic Bezier smoothing while keeping the path near the source centerline.
-- Suppress duplicate or nearly coincident strokes.
-- Enforce a configurable stroke-count limit before playback.
-
-## Coordinate mapping and preview
-
-- Map image bounds to a user-selected screen region.
-- Lock aspect ratio by default and make any non-uniform mapping explicit.
-- Show a preview outline of the target region before drawing.
-- Keep the preview separate from the gesture dispatcher so no marks are sent until the user starts a confirmed run.
-
-## Acceptance checks
-
-- Test with a small set of sample line-art images.
-- Compare extracted centerlines and ordered paths against the source images.
-- Record false branches, lost junctions, duplicate paths and mapping errors.
-- Do not proceed until the previous stage has a passing device test recorded in `TEST.md`.
+## Device verification
+Automated tests/builds do not verify ColorOS service retention, canvas calibration or visible ibisPaint marks. See TEST.md; no physical-device result is claimed until completed.
