@@ -29,7 +29,7 @@ The repository is private, so setup needs a fine-grained GitHub token once:
 3. Grant **Contents: Read-only**. Do not grant write access.
 4. Paste the token into **Manga Inker → Settings → GitHub app updates** and tap **Save token and check**.
 
-The token is encrypted with Android Keystore on the device. It is not included in the APK or uploaded by the app. The update workflow publishes a new signed release whenever code is pushed to `feature/full-page-outline-repair`. The same signing identity is used for each release so Android can install an update over the existing app.
+The token is encrypted with Android Keystore on the device. It is not included in the APK or uploaded by the app. The update workflow publishes a new signed release whenever code is pushed to `feature/full-page-outline-repair` or, after the PR is merged, `main`. The same signing identity is used for each release so Android can install an update over the existing app.
 
 **One-time migration:** builds from the earlier Stage 1 workflow used an ephemeral debug signing key. They cannot be upgraded in place by the new release-signed app. Uninstall the old Stage 1 APK once, install the first `app-release.apk` from the private `mobile-latest` GitHub release, then configure the token. After that, future builds update in-app without manually downloading each APK. Uninstalling removes the old app's local session and update token.
 

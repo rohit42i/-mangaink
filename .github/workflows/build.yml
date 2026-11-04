@@ -81,7 +81,7 @@ jobs:
           retention-days: 14
 
       - name: Create update manifest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/full-page-outline-repair'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/full-page-outline-repair')
         shell: bash
         run: |
           set -euo pipefail
