@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
@@ -322,9 +323,18 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun section(label: String): TextView = text(label, 11f, Color.rgb(112, 216, 232), true).apply {
-        letterSpacing = 0.12f
-        setPadding(0, dp(22), 0, dp(9))
+    private fun section(label: String): TextView = text(label.uppercase(), 11f, Color.rgb(126, 205, 220), true).apply {
+        letterSpacing = 0.10f
+        setPadding(dp(12), dp(13), dp(12), dp(13))
+        background = GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setColor(Color.rgb(25, 32, 41))
+            setStroke(dp(1), Color.rgb(43, 55, 68))
+        }
+        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(18)
+        params.bottomMargin = dp(8)
+        layoutParams = params
     }
 
     private fun help(message: String): TextView = text(message, 12f, Color.rgb(157, 171, 187), false).apply {
@@ -332,9 +342,16 @@ class MainActivity : Activity() {
     }
 
     private fun sliderLabel(title: String, detail: String): View {
-        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
-        column.addView(text(title, 13f, Color.WHITE, true))
-        column.addView(text(detail, 11f, Color.rgb(135, 149, 166), false).apply { setPadding(0, dp(3), 0, 0) })
+        val column = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(10), dp(12), dp(4))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(11).toFloat()
+                setColor(Color.rgb(21, 27, 35))
+            }
+        }
+        column.addView(text(title, 13f, Color.rgb(238, 243, 248), true))
+        column.addView(text(detail, 11f, Color.rgb(151, 164, 179), false).apply { setPadding(0, dp(3), 0, 0) })
         return column
     }
 
@@ -359,9 +376,18 @@ class MainActivity : Activity() {
         text = label
         isAllCaps = false
         textSize = 13f
+        setTextColor(Color.rgb(238, 243, 248))
+        minHeight = dp(48)
+        stateListAnimator = null
+        background = GradientDrawable().apply {
+            cornerRadius = dp(13).toFloat()
+            setColor(Color.rgb(35, 44, 56))
+            setStroke(dp(1), Color.rgb(57, 71, 87))
+        }
+        setPadding(dp(14), dp(7), dp(14), dp(7))
         setOnClickListener { action() }
         val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(50))
-        params.bottomMargin = dp(6)
+        params.bottomMargin = dp(7)
         layoutParams = params
     }
 
