@@ -18,6 +18,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material.icons.outlined.Minimize
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -56,7 +60,7 @@ fun FloatingPanelContent(
     onSnap: () -> Unit
 ) {
     val state by controller.state.collectAsState()
-    var expanded by remember { mutableStateOf(true) }
+    var expanded by remember { mutableStateOf(false) }
     var showStopConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(expanded, state.running, state.paused, state.testArmed, state.panelAutoCollapseMs) {
@@ -71,11 +75,11 @@ fun FloatingPanelContent(
         contentColor = InkPalette.primaryText,
         shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, InkPalette.outline),
-        modifier = Modifier.widthIn(min = 104.dp, max = 248.dp)
+        modifier = Modifier.widthIn(min = if (expanded) 248.dp else 82.dp, max = 272.dp)
     ) {
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                modifier = Modifier.fillMaxWidth().height(44.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -111,31 +115,55 @@ fun FloatingPanelContent(
             }
 
             if (expanded) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(state.message, color = InkPalette.secondaryText, fontSize = 12.sp, maxLines = 2)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
+                Column(Modifier.padding(top = 10.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("SESSION CONTROL", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f), letterSpacing = 0.8.sp)
+                        Text(if (state.running) "ACTIVE" else if (state.testArmed) "ARMED" else "STANDBY", color = if (state.running) InkPalette.success else InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+                    }
+                    Text(state.message, color = InkPalette.secondaryText, fontSize = 11.sp, maxLines = 2)
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Button(
                             onClick = { controller.dispatch(SessionCommand.Start) },
-                            enabled = !state.running,
-                            colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent),
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Start") }
+                            enabled = state.testArmed && !state.running,
+                            colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent, disabledContainerColor = InkPalette.raised),
+                            modifier = Modifier.weight(1.15f).height(42.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Outlined.PlayArrow, contentDescription = null, modifier = Modifier.size(17.dp))
+                            Spacer(Modifier.size(4.dp))
+                            Text("Start", fontSize = 13.sp)
+                        }
                         OutlinedButton(
                             onClick = { controller.dispatch(if (state.paused) SessionCommand.Resume else SessionCommand.Pause) },
                             enabled = state.running,
-                            modifier = Modifier.weight(1f)
-                        ) { Text(if (state.paused) "Resume" else "Pause") }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                            modifier = Modifier.weight(1f).height(42.dp),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(if (state.paused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.size(3.dp))
+                            Text(if (state.paused) "Resume" else "Pause", fontSize = 12.sp)
+                        }
                         OutlinedButton(
                             onClick = {
                                 if (controller.shouldConfirmStop()) showStopConfirmation = true
                                 else controller.dispatch(SessionCommand.Stop)
                             },
                             enabled = state.running || state.testArmed,
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Stop") }
-                        TextButton(onClick = { expanded = false }) { Text("Minimize", color = InkPalette.secondaryText) }
+                            modifier = Modifier.size(42.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+                        ) {
+                            Icon(Icons.Outlined.Stop, contentDescription = "Stop", tint = InkPalette.accent)
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Floating tool overlay", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { expanded = false }) {
+                            Icon(Icons.Outlined.Minimize, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.size(4.dp))
+                            Text("Minimize", color = InkPalette.secondaryText)
+                        }
                     }
                 }
             }

@@ -177,59 +177,170 @@ private fun HomeScreen(
     onTestStroke: () -> Unit,
     onRecoveryAction: () -> Unit
 ) {
+    val setupComplete = overlayGranted && accessibilityGranted
     Column(
-        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = modifier.fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LineArtMark(Modifier.size(42.dp))
-            Column {
-                Text("Manga Inker", style = MaterialTheme.typography.titleLarge)
-                Text("Local gesture test", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LineArtMark(Modifier.size(46.dp))
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("MANGA INKER", style = MaterialTheme.typography.titleLarge, letterSpacing = 0.8.sp)
+                Text("PRECISION GESTURE TOOL", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.1.sp)
+            }
+            Surface(
+                color = InkPalette.raised,
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, InkPalette.outline)
+            ) {
+                Text("STAGE 01", modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp), color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
             }
         }
 
-        Text("Setup", style = MaterialTheme.typography.titleMedium)
-        Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(12.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SetupRow("Display over apps", "Required for the floating control panel.", overlayGranted, "Settings", onOpenOverlay)
-                SetupRow("Accessibility service", "Sends test touch gestures without reading screen content.", accessibilityGranted, "Settings", onOpenAccessibility)
-                SetupRow("Restricted settings unlocked", "Manual check for sideloaded apps on Android 13+.", state.restrictedSettingsConfirmed, "Guide", onRestrictedGuide)
+        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("Gesture proof", style = MaterialTheme.typography.titleLarge)
+            Text("Verify that ibisPaint accepts a controlled test stroke before using any tracing workflow.", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = InkPalette.surface),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, InkPalette.outline)
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Device setup", style = MaterialTheme.typography.titleMedium)
+                        Text("Two permissions required to continue", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Surface(
+                        color = if (setupComplete) Color(0x1F3DBE78) else Color(0x1FE5A93B),
+                        shape = RoundedCornerShape(7.dp)
+                    ) {
+                        Text(
+                            if (setupComplete) "READY" else "ACTION NEEDED",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                            color = if (setupComplete) InkPalette.success else InkPalette.warning,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+                SetupRow("Display over apps", "Floating controls above ibisPaint", overlayGranted, "Open", onOpenOverlay)
+                androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
+                SetupRow("Accessibility service", "Dispatches the test touch path", accessibilityGranted, "Open", onOpenAccessibility)
+                androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
+                SetupRow("Restricted settings", "Manual confirmation for sideloaded apps", state.restrictedSettingsConfirmed, "Guide", onRestrictedGuide)
             }
         }
 
-        Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(12.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Service status", style = MaterialTheme.typography.titleMedium)
-                StatusLine("Service connected", if (state.serviceConnected) "Yes" else "No")
-                StatusLine("Last gesture result", state.lastGestureResult)
-                Text(state.message, color = if (state.isError) InkPalette.warning else InkPalette.secondaryText)
-            }
-        }
-
-        if (state.isError) {
-            Card(colors = CardDefaults.cardColors(containerColor = InkPalette.raised), shape = RoundedCornerShape(12.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(state.message, color = InkPalette.primaryText)
-                    OutlinedButton(onClick = onRecoveryAction) {
-                        Text(if (state.serviceConnected) "Return to ibisPaint" else "Open Accessibility settings")
+        Card(
+            colors = CardDefaults.cardColors(containerColor = InkPalette.surface),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, InkPalette.outline)
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Live status", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(
+                            when {
+                                state.isError -> InkPalette.accent
+                                state.running -> InkPalette.success
+                                state.serviceConnected -> InkPalette.warning
+                                else -> InkPalette.outline
+                            }
+                        ))
+                        Text(
+                            when {
+                                state.isError -> "ERROR"
+                                state.running && state.paused -> "PAUSED"
+                                state.running -> "RUNNING"
+                                state.serviceConnected -> "CONNECTED"
+                                else -> "IDLE"
+                            },
+                            color = when {
+                                state.isError -> InkPalette.accent
+                                state.running -> InkPalette.success
+                                state.serviceConnected -> InkPalette.warning
+                                else -> InkPalette.secondaryText
+                            },
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+                StatusLine("Accessibility service", if (state.serviceConnected) "Connected" else "Not connected")
+                StatusLine("ibisPaint foreground", if (state.ibisPaintForeground) "Detected" else "Not detected")
+                StatusLine("Last gesture", state.lastGestureResult)
+                Text(
+                    state.message,
+                    color = if (state.isError) InkPalette.warning else InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (state.isError) {
+                    OutlinedButton(onClick = onRecoveryAction, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (state.serviceConnected) "Return to ibisPaint" else "Open accessibility settings")
                     }
                 }
             }
         }
 
-        Button(
-            onClick = onTestStroke,
-            enabled = overlayGranted && accessibilityGranted && !state.running,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent),
-            shape = RoundedCornerShape(12.dp)
-        ) { Text("Test stroke") }
-
-        if (!overlayGranted || !accessibilityGranted) {
-            Text("Enable Display over apps and the Accessibility service to run the test.", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = InkPalette.raised),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, InkPalette.outline)
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text("Test stroke", style = MaterialTheme.typography.titleMedium)
+                        Text("One controlled S-curve on the active canvas", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Canvas(Modifier.size(54.dp)) {
+                        val p = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(size.width * 0.28f, size.height * 0.08f)
+                            cubicTo(size.width * 0.95f, size.height * 0.25f, size.width * 0.05f, size.height * 0.72f, size.width * 0.72f, size.height * 0.92f)
+                        }
+                        drawPath(p, InkPalette.accent, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TestMetric("HEIGHT", "400 px")
+                    TestMetric("DURATION", "1.5 sec")
+                    TestMetric("MODE", "Single run")
+                }
+                Button(
+                    onClick = onTestStroke,
+                    enabled = setupComplete && !state.running,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(if (state.testArmed) "Open floating controls" else "Prepare test stroke")
+                }
+                Text(
+                    if (setupComplete) "Open ibisPaint, choose your brush, then press Start in the floating panel."
+                    else "Complete the two required permissions to prepare the test.",
+                    color = InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
-        Text("No network. No storage. Nothing leaves the device.", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+
+        Text("PRIVATE BY DESIGN  ·  No network  ·  No artwork storage", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun TestMetric(label: String, value: String) {
+    Column(
+        modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).background(InkPalette.surface).padding(horizontal = 9.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(label, color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+        Text(value, color = InkPalette.primaryText, style = MaterialTheme.typography.labelLarge)
     }
 }
 
@@ -242,16 +353,15 @@ private fun SetupRow(
     onAction: () -> Unit
 ) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            Modifier.size(9.dp).clip(CircleShape).background(if (granted) InkPalette.success else InkPalette.warning)
+        )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             Text(subtitle, color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
-            Text(
-                if (granted) "Granted" else "Needs action",
-                color = if (granted) InkPalette.success else InkPalette.warning,
-                style = MaterialTheme.typography.labelMedium
-            )
+            Text(if (granted) "Granted" else "Needs action", color = if (granted) InkPalette.success else InkPalette.warning, style = MaterialTheme.typography.labelSmall)
         }
-        OutlinedButton(onClick = onAction) { Text(actionLabel) }
+        OutlinedButton(onClick = onAction, shape = RoundedCornerShape(8.dp)) { Text(actionLabel) }
     }
 }
 
