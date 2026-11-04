@@ -17,6 +17,7 @@ Stage 1 only: no sketch import, image processing, OpenCV, AI, calibration, path 
 4. In Manga Inker, open Accessibility settings and enable Manga Inker gesture access.
 5. Return and open Overlay settings. Allow Display over other apps.
 6. Open ibisPaint X and select a brush.
+7. In Manga Inker, tap Test stroke to show the floating panel. Switch back to ibisPaint and tap Start on the panel.
 
 Overlay and Accessibility are separate permissions.
 
