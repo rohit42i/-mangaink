@@ -434,7 +434,7 @@ private fun HomeScreen(
                 ) { Text("Open floating controls") }
                 if (state.isError) {
                     OutlinedButton(onClick = {
-                        if (!state.serviceConnected) onOpenAccessibilitySettings() else onOpenIbisPaint()
+                        if (!state.serviceConnected) onOpenAccessibility() else onOpenIbisPaint()
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text(if (!state.serviceConnected) "Open accessibility settings" else "Open ibisPaint")
                     }
