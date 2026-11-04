@@ -136,10 +136,14 @@ class MainActivity : Activity() {
             setPadding(0, dp(10), 0, dp(8))
         }
         page.addView(accessStatus)
-        page.addView(actionButton("1. Enable drawing accessibility") {
+        page.addView(help("Android may block the drawing service because this APK was installed outside an app store. This is a system safety restriction, not a Manga Inker crash. First allow restricted settings for this app, then enable its drawing service."))
+        page.addView(actionButton("1. Open Manga Inker app settings") {
+            openAppSettingsForRestrictedAccess()
+        })
+        page.addView(actionButton("2. Enable Manga Inker drawing gestures") {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
-        page.addView(actionButton("2. Allow floating controls") {
+        page.addView(actionButton("3. Allow floating controls") {
             if (!Settings.canDrawOverlays(this)) {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()))
             } else toast("Floating controls permission is already enabled.")
@@ -261,6 +265,12 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun openAppSettingsForRestrictedAccess() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri())
+        startActivity(intent)
+        toast("In App info, open the three-dot menu and choose Allow restricted settings if it appears. Then enable Manga Inker drawing gestures in Accessibility settings.")
     }
 
     private fun startFloatingPanel() {
