@@ -126,6 +126,80 @@ class SessionController(context: Context) {
         }
     }
 
+    /**
+     * Receives a single frame from the explicitly approved MediaProjection session.
+     * The bitmap stays in memory and is immediately downsampled before local scanning.
+     */
+    fun importCapturedBitmap(captured: android.graphics.Bitmap) {
+        if (mutableState.value.running) stop()
+        scanJob?.cancel()
+        importJob?.cancel()
+        importJob = scope.launch(Dispatchers.Default) {
+            var accepted: android.graphics.Bitmap? = null
+            try {
+                val maxSide = 1400
+                val scale = minOf(1f, maxSide.toFloat() / maxOf(captured.width, captured.height))
+                accepted = if (scale < 1f) {
+                    android.graphics.Bitmap.createScaledBitmap(
+                        captured,
+                        (captured.width * scale).toInt().coerceAtLeast(1),
+                        (captured.height * scale).toInt().coerceAtLeast(1),
+                        true
+                    ).also { if (it !== captured && !captured.isRecycled) captured.recycle() }
+                } else captured
+                val previous = mutableState.value.sourceBitmap
+                mutableState.update {
+                    it.copy(
+                        sourceBitmap = accepted,
+                        sourceName = "ibisPaint screen capture",
+                        pageWidth = accepted!!.width,
+                        pageHeight = accepted!!.height,
+                        paths = emptyList(),
+                        selectedLeft = 0f,
+                        selectedTop = 0f,
+                        selectedRight = 1f,
+                        selectedBottom = 1f,
+                        selectionMode = false,
+                        scanLeftPx = 0,
+                        scanTopPx = 0,
+                        scanWidthPx = accepted!!.width,
+                        scanHeightPx = accepted!!.height,
+                        foregroundPixels = 0,
+                        skeletonPixels = 0,
+                        discardedComponents = 0,
+                        threshold = 0,
+                        calibration = null,
+                        calibrationCorners = emptyList(),
+                        calibrating = false,
+                        testGestureVerified = false,
+                        scanInProgress = false,
+                        scanProgress = 0f,
+                        scanStatus = "Screen captured. Preparing the local outline scan…",
+                        isError = false,
+                        message = "One ibisPaint screen frame was captured locally. No screenshot was uploaded."
+                    )
+                }
+                if (previous != null && previous !== accepted && !previous.isRecycled) previous.recycle()
+                Logger.info("Screen frame imported locally size=${accepted!!.width}x${accepted!!.height}")
+                scanFullPage()
+            } catch (error: Exception) {
+                val bitmapToRecycle = accepted ?: captured
+                if (!bitmapToRecycle.isRecycled && mutableState.value.sourceBitmap !== bitmapToRecycle) {
+                    bitmapToRecycle.recycle()
+                }
+                mutableState.update {
+                    it.copy(
+                        scanInProgress = false,
+                        isError = true,
+                        scanStatus = error.message ?: "The captured screen could not be processed.",
+                        message = "Screen capture import failed."
+                    )
+                }
+                Logger.error("Captured screen import failed: ${error.message ?: error.javaClass.simpleName}")
+            }
+        }
+    }
+
     fun scanPage() {
         val snapshot = mutableState.value
         val bitmap = snapshot.sourceBitmap
