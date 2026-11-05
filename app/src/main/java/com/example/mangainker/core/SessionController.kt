@@ -172,7 +172,17 @@ class SessionController(context: Context) {
         if (mutableState.value.running) stop()
         scanJob?.cancel()
         importJob?.cancel()
+        mutableState.update {
+            it.copy(
+                scanInProgress = true,
+                scanProgress = 0.02f,
+                scanStatus = "Preparing the captured ibisPaint frame…",
+                isError = false,
+                message = "Importing the captured page locally."
+            )
+        }
         importJob = scope.launch(Dispatchers.Default) {
+            val captureJob = currentCoroutineContext()[Job]
             var source = captured
             var working: android.graphics.Bitmap? = null
             var detectionBitmap: android.graphics.Bitmap? = null
@@ -188,9 +198,17 @@ class SessionController(context: Context) {
                         true
                     )
                 } else captured
-                val gray = BitmapTools.grayscale(detectionBitmap!!)
+                val gray = BitmapTools.grayscale(detectionBitmap!!) {
+                    if (captureJob?.isActive == false) {
+                        throw CancellationException("Captured-page import cancelled.")
+                    }
+                }
                 val smallBounds = try {
-                    PageBoundsDetector.detect(gray, detectionBitmap!!.width, detectionBitmap!!.height)
+                    PageBoundsDetector.detect(gray, detectionBitmap!!.width, detectionBitmap!!.height) {
+                        if (captureJob?.isActive == false) {
+                            throw CancellationException("Captured-page import cancelled.")
+                        }
+                    }
                 } finally {
                     gray.fill(0)
                 }
@@ -293,6 +311,25 @@ class SessionController(context: Context) {
                 candidateBitmap = null
                 Logger.info("Screen frame imported locally size=" + bitmap.width + "x" + bitmap.height)
                 if (pageBounds != null) scanFullPage()
+            } catch (cancelled: CancellationException) {
+                detectionBitmap?.takeIf { it !== captured && !it.isRecycled }?.recycle()
+                candidateBitmap?.takeIf { it !== mutableState.value.sourceBitmap && !it.isRecycled }?.recycle()
+                val recycleTarget = working ?: captured
+                if (!recycleTarget.isRecycled && mutableState.value.sourceBitmap !== recycleTarget) {
+                    recycleTarget.recycle()
+                }
+                mutableState.update {
+                    it.copy(
+                        captureInProgress = false,
+                        scanInProgress = false,
+                        scanProgress = 0f,
+                        scanStatus = "Captured-page import cancelled.",
+                        isError = false,
+                        message = "The captured page was kept out of the workspace."
+                    )
+                }
+                Logger.info("Captured-page import cancelled")
+                throw cancelled
             } catch (error: Exception) {
                 detectionBitmap?.takeIf { it !== captured && !it.isRecycled }?.recycle()
                 candidateBitmap?.takeIf { it !== mutableState.value.sourceBitmap && !it.isRecycled }?.recycle()
