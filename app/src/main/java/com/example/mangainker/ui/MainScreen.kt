@@ -79,6 +79,8 @@ fun MangaInkerRoot(
     controller: SessionController,
     updateManager: GitHubUpdateManager,
     permissionRefreshKey: Int,
+    navigationRequest: Int,
+    navigateToSettings: Boolean,
     onPickPage: () -> Unit,
     onCaptureScreen: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
@@ -96,7 +98,7 @@ fun MangaInkerRoot(
     val overlayGranted = remember(permissionRefreshKey) { PermissionChecks.overlayGranted(context) }
     val batteryExempt = remember(permissionRefreshKey) { PermissionChecks.batteryOptimizationExempt(context) }
     val accessibilityGranted = remember(permissionRefreshKey) { PermissionChecks.accessibilityGranted(context) }
-    var selectedTab by remember { mutableStateOf(AppTab.Home) }
+    var selectedTab by remember(navigationRequest) { mutableStateOf(if (navigateToSettings) AppTab.Settings else AppTab.Home) }
     var showRestrictedGuide by remember { mutableStateOf(false) }
 
     Scaffold(
