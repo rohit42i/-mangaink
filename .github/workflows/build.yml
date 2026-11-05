@@ -2,7 +2,7 @@ name: Manga Inker Android CI
 
 on:
   push:
-    branches: [ main, 'feature/stage-1-gesture-replay', 'feature/full-page-outline-repair' ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: manga-inker-${{ github.ref }}
-  cancel-in-progress: false
+  group: manga-inker-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify-and-build:
