@@ -3,6 +3,7 @@ package com.example.mangainker.permissions
 import android.content.ComponentName
 import android.content.Context
 import android.provider.Settings
+import android.os.PowerManager
 import com.example.mangainker.gesture.GestureAccessibilityService
 
 object PermissionChecks {
@@ -18,4 +19,10 @@ object PermissionChecks {
             ComponentName.unflattenFromString(entry)?.let { it == expected } == true
         }
     }
+
+    fun batteryOptimizationExempt(context: Context): Boolean {
+        val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return power.isIgnoringBatteryOptimizations(context.packageName)
+    }
+
 }
