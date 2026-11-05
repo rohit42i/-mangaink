@@ -80,6 +80,9 @@ class SessionController(context: Context) {
     }
 
     fun importPage(uri: Uri) {
+        lastMappedTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
         if (mutableState.value.running) stop()
         scanJob?.cancel()
         importJob?.cancel()
@@ -89,6 +92,12 @@ class SessionController(context: Context) {
                 scanProgress = 0f,
                 scanStatus = "Opening the selected page…",
                 paths = emptyList(),
+                currentPath = 0,
+                completedPaths = 0,
+                totalPaths = 0,
+                failedPaths = 0,
+                pathLog = emptyList(),
+                resumeAvailable = false,
                 calibration = null,
                 calibrationCorners = emptyList(),
                 calibrating = false,
@@ -157,6 +166,9 @@ class SessionController(context: Context) {
      * The bitmap stays in memory and is immediately downsampled before local scanning.
      */
     fun importCapturedBitmap(captured: android.graphics.Bitmap) {
+        lastMappedTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
         if (mutableState.value.running) stop()
         scanJob?.cancel()
         importJob?.cancel()
@@ -297,6 +309,9 @@ class SessionController(context: Context) {
     }
 
     fun scanPage() {
+        lastMappedTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
         val snapshot = mutableState.value
         val bitmap = snapshot.sourceBitmap
         if (bitmap == null || bitmap.isRecycled) {
@@ -327,6 +342,12 @@ class SessionController(context: Context) {
                     "Preparing the full page scan…"
                 else "Preparing selected area scan…",
                 paths = emptyList(),
+                currentPath = 0,
+                completedPaths = 0,
+                totalPaths = 0,
+                failedPaths = 0,
+                pathLog = emptyList(),
+                resumeAvailable = false,
                 calibration = null,
                 testGestureVerified = false,
                 isError = false
@@ -545,6 +566,8 @@ class SessionController(context: Context) {
                 completedPaths = 0,
                 totalPaths = 0,
                 failedPaths = 0,
+                pathLog = emptyList(),
+                resumeAvailable = false,
                 progress = 0f,
                 isError = false,
                 message = "Page cleared."
