@@ -94,6 +94,7 @@ fun MangaInkerRoot(
     val context = LocalContext.current
     val studioStore = remember(context) { StudioProjectStore(context) }
     val overlayGranted = remember(permissionRefreshKey) { PermissionChecks.overlayGranted(context) }
+    val batteryExempt = remember(permissionRefreshKey) { PermissionChecks.batteryOptimizationExempt(context) }
     val accessibilityGranted = remember(permissionRefreshKey) { PermissionChecks.accessibilityGranted(context) }
     var selectedTab by remember { mutableStateOf(AppTab.Home) }
     var showRestrictedGuide by remember { mutableStateOf(false) }
@@ -233,7 +234,7 @@ private fun HomeScreen(
                 Text("MANGA INKER", style = MaterialTheme.typography.titleLarge, letterSpacing = 0.8.sp)
                 Text("FULL PAGE OUTLINE TRACER", color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall, letterSpacing = 0.8.sp)
             }
-            SurfaceTag(if (state.running) "TRACING" else if (state.paths.isNotEmpty()) "PAGE READY" else "LOCAL")
+            SurfaceTag(when { state.captureInProgress -> "RECORDING"; state.running -> "TRACING"; state.paths.isNotEmpty() -> "PAGE READY"; else -> "LOCAL" })
         }
 
         if (updateState.updateAvailable) {
@@ -270,6 +271,13 @@ private fun HomeScreen(
                 SetupRow("Accessibility service", "Sends the outline paths as touch gestures", accessibilityGranted, "Open", onOpenAccessibility)
                 androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
                 SetupRow("Restricted settings", "Manual confirmation for sideloaded builds", state.restrictedSettingsConfirmed, "Guide", onRestrictedGuide)
+                androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
+                SetupRow("Battery optimization", "Check whether Android allows background work", batteryExempt, "Fix", onOpenAppInfo)
+                Text(
+                    "ColorOS: open App info for Manga Inker, enable Auto-launch and Background activity, then set Battery usage to Unrestricted. Menu names vary by ColorOS version. Screen capture still needs Android approval every session.",
+                    color = InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
 
