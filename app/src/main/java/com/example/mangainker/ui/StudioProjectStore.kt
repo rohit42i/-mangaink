@@ -175,32 +175,26 @@ class StudioProjectStore(context: Context) {
     }
 
     fun movePage(project: StudioProject, pageId: String, offset: Int): StudioProject {
-        val pages = pagesFor(project).toMutableList()
-        val index = pages.indexOfFirst { it.id == pageId }
-        if (index < 0) return project
-        val target = (index + offset).coerceIn(0, pages.lastIndex)
-        if (target == index) return project
-        val moved = pages.removeAt(index)
-        pages.add(target, moved)
-        val updated = project.copy(pages = pages)
+        val pages = pagesFor(project)
+        val byId = pages.associateBy { it.id }
+        val order = StudioPageOrder.move(pages.map { it.id }, pageId, offset)
+        if (order == pages.map { it.id }) return project
+        val updated = project.copy(pages = order.mapNotNull { byId[it] })
         saveProject(updated)
         return updated
     }
 
     fun removePage(project: StudioProject, pageId: String): StudioProject {
         val pages = pagesFor(project)
-        require(pages.size > 1) { "A project must keep at least one page." }
-        val index = pages.indexOfFirst { it.id == pageId }
-        require(index >= 0) { "The selected page no longer exists." }
-        val remaining = pages.toMutableList().apply { removeAt(index) }
-        val nextActive = if (project.activePageId == pageId) {
-            remaining[(index - 1).coerceAtLeast(0)]
-        } else {
-            remaining.first { it.id == project.activePageId }
-        }
+        val ids = pages.map { it.id }
+        val remainingIds = StudioPageOrder.remove(ids, pageId)
+        val byId = pages.associateBy { it.id }
+        val remaining = remainingIds.mapNotNull { byId[it] }
+        val nextActiveId = StudioPageOrder.activeAfterRemoval(ids, pageId, project.activePageId)
+        val nextActive = remaining.first { it.id == nextActiveId }
         val updated = projectForPage(project.copy(pages = remaining), nextActive)
         saveProject(updated)
-        val deleted = File(File(root, project.id), pages[index].pageFile)
+        val deleted = File(File(root, project.id), pages.first { it.id == pageId }.pageFile)
         if (deleted.exists()) deleted.delete()
         return updated
     }
