@@ -78,6 +78,9 @@ fun StudioWorkspaceScreen(
     var resizeDraggedElement by remember { mutableStateOf(false) }
     var editingElementId by remember { mutableStateOf<String?>(null) }
     var editingText by remember { mutableStateOf("") }
+    var undoHistory by remember { mutableStateOf<List<List<StudioElement>>>(emptyList()) }
+    var redoHistory by remember { mutableStateOf<List<List<StudioElement>>>(emptyList()) }
+    var showDeletePageConfirmation by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("Create a project from an imported page, or open a saved project.") }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
@@ -85,8 +88,13 @@ fun StudioWorkspaceScreen(
         projects = store.listProjects()
     }
 
-    fun save(updated: StudioProject) {
+    fun save(updated: StudioProject, recordHistory: Boolean = true) {
         try {
+            val current = project
+            if (recordHistory && current != null && current.id == updated.id && current.elements != updated.elements) {
+                undoHistory = (undoHistory + listOf(current.elements)).takeLast(50)
+                redoHistory = emptyList()
+            }
             store.saveProject(updated)
             project = updated.copy(updatedAt = System.currentTimeMillis())
             refreshProjects()
@@ -94,6 +102,126 @@ fun StudioWorkspaceScreen(
         } catch (error: Exception) {
             message = "Save failed: " + (error.message ?: "unknown error")
         }
+    }
+
+    fun switchPage(pageId: String) {
+        val current = project ?: return
+        if (pageId == current.activePageId) return
+        try {
+            val loaded = store.loadPage(current, pageId)
+            if (loaded == null) {
+                message = "This page could not be opened. Its source image may be missing."
+                return
+            }
+            page = loaded.page
+            project = loaded.project
+            selectedElementId = null
+            draggedElementId = null
+            undoHistory = emptyList()
+            redoHistory = emptyList()
+            message = "Opened " + loaded.project.pages.indexOfFirst { it.id == pageId }.let { "Page " + (it + 1) } + "."
+        } catch (error: Exception) {
+            message = "Page switch failed: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun addImportedPage() {
+        val current = project ?: return
+        val source = importedPage
+        if (source == null || source.isRecycled) {
+            message = "Import another page in Home first."
+            return
+        }
+        try {
+            val updated = store.addPage(current, source, "Page " + (current.pages.size + 1))
+            val loaded = store.loadPage(updated, updated.activePageId.orEmpty())
+            if (loaded == null) {
+                message = "The page was saved but could not be reopened."
+                return
+            }
+            page = loaded.page
+            project = loaded.project
+            selectedElementId = null
+            undoHistory = emptyList()
+            redoHistory = emptyList()
+            refreshProjects()
+            message = "New page added to this project."
+        } catch (error: Exception) {
+            message = "Could not add page: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun duplicateCurrentPage() {
+        val current = project ?: return
+        try {
+            val updated = store.duplicateActivePage(current)
+            val loaded = store.loadPage(updated, updated.activePageId.orEmpty())
+            if (loaded == null) {
+                message = "The duplicated page could not be reopened."
+                return
+            }
+            page = loaded.page
+            project = loaded.project
+            selectedElementId = null
+            undoHistory = emptyList()
+            redoHistory = emptyList()
+            refreshProjects()
+            message = "Current page duplicated."
+        } catch (error: Exception) {
+            message = "Page duplication failed: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun deleteCurrentPage() {
+        val current = project ?: return
+        try {
+            val updated = store.removePage(current, current.activePageId.orEmpty())
+            val loaded = store.loadPage(updated, updated.activePageId.orEmpty())
+            if (loaded == null) {
+                message = "The remaining page could not be reopened."
+                return
+            }
+            page = loaded.page
+            project = loaded.project
+            selectedElementId = null
+            undoHistory = emptyList()
+            redoHistory = emptyList()
+            refreshProjects()
+            message = "Page deleted. Remaining pages were preserved."
+        } catch (error: Exception) {
+            message = "Page deletion failed: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun moveCurrentPage(offset: Int) {
+        val current = project ?: return
+        val activeId = current.activePageId ?: return
+        try {
+            val updated = store.movePage(current, activeId, offset)
+            project = updated
+            refreshProjects()
+            message = "Page order updated."
+        } catch (error: Exception) {
+            message = "Page reorder failed: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun undo() {
+        val current = project ?: return
+        val previous = undoHistory.lastOrNull() ?: return
+        undoHistory = undoHistory.dropLast(1)
+        redoHistory = (redoHistory + listOf(current.elements)).takeLast(50)
+        save(current.copy(elements = previous), recordHistory = false)
+        message = "Last edit undone."
+    }
+
+    fun redo() {
+        val current = project ?: return
+        val next = redoHistory.lastOrNull() ?: return
+        redoHistory = redoHistory.dropLast(1)
+        undoHistory = (undoHistory + listOf(current.elements)).takeLast(50)
+        save(current.copy(elements = next), recordHistory = false)
+        message = "Edit restored."
     }
 
     fun openProject(selected: StudioProject) {
@@ -106,6 +234,8 @@ fun StudioWorkspaceScreen(
             page = loaded.page
             project = loaded.project
             selectedElementId = null
+            undoHistory = emptyList()
+            redoHistory = emptyList()
             projectTitle = loaded.project.title
             activeTool = StudioTool.PANEL
             message = "Opened " + loaded.project.title + ". Changes are saved locally."
@@ -245,6 +375,46 @@ fun StudioWorkspaceScreen(
             Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(14.dp)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     Text(currentProject.title, style = MaterialTheme.typography.titleMedium)
+                    Text("Pages · " + currentProject.pages.size, color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(
+                            onClick = ::addImportedPage,
+                            enabled = importedPage != null && !importedPage.isRecycled,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Add page") }
+                        OutlinedButton(
+                            onClick = ::duplicateCurrentPage,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Duplicate") }
+                        OutlinedButton(
+                            onClick = { showDeletePageConfirmation = true },
+                            enabled = currentProject.pages.size > 1,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Delete page") }
+                    }
+                    currentProject.pages.forEachIndexed { index, studioPage ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { switchPage(studioPage.id) },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    (if (studioPage.id == currentProject.activePageId) "● " else "") +
+                                        "Page " + (index + 1) + " · " + studioPage.title,
+                                    color = if (studioPage.id == currentProject.activePageId) InkPalette.accent else InkPalette.primaryText,
+                                    maxLines = 1
+                                )
+                            }
+                            TextButton(
+                                onClick = { moveCurrentPage(-1) },
+                                enabled = studioPage.id == currentProject.activePageId && index > 0
+                            ) { Text("↑") }
+                            TextButton(
+                                onClick = { moveCurrentPage(1) },
+                                enabled = studioPage.id == currentProject.activePageId && index < currentProject.pages.lastIndex
+                            ) { Text("↓") }
+                        }
+                    }
                     Text(
                         "Choose a tool, then drag on the page. All added elements are stored with this project.",
                         color = InkPalette.secondaryText,
@@ -479,14 +649,15 @@ fun StudioWorkspaceScreen(
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         OutlinedButton(
-                            onClick = {
-                                if (currentProject.elements.isNotEmpty()) {
-                                    save(currentProject.copy(elements = currentProject.elements.dropLast(1)))
-                                }
-                            },
-                            enabled = currentProject.elements.isNotEmpty(),
+                            onClick = ::undo,
+                            enabled = undoHistory.isNotEmpty(),
                             modifier = Modifier.weight(1f)
-                        ) { Text("Undo element") }
+                        ) { Text("Undo") }
+                        OutlinedButton(
+                            onClick = ::redo,
+                            enabled = redoHistory.isNotEmpty(),
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Redo") }
                         OutlinedButton(
                             onClick = { showDeleteConfirmation = true },
                             modifier = Modifier.weight(1f)
@@ -536,6 +707,23 @@ fun StudioWorkspaceScreen(
             },
             dismissButton = {
                 TextButton(onClick = { editingElementId = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showDeletePageConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeletePageConfirmation = false },
+            title = { Text("Delete this page?") },
+            text = { Text("This removes only the active page. Other project pages will remain saved.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleteCurrentPage()
+                    showDeletePageConfirmation = false
+                }) { Text("Delete page") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePageConfirmation = false }) { Text("Cancel") }
             }
         )
     }
