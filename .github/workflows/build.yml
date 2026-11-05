@@ -115,7 +115,7 @@ jobs:
           sha="$(sha256sum "$apk" | cut -d ' ' -f 1)"
           cat > release/update.json <<EOF
           {
-            "packageName": "com.example.mangainker",
+            "packageName": "com.rohit.mangainker",
             "versionCode": $((1000 + GITHUB_RUN_NUMBER)),
             "versionName": "1.1.$GITHUB_RUN_NUMBER",
             "sha256": "$sha",
