@@ -706,11 +706,46 @@ private fun SettingsScreen(
         Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(12.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("GitHub app updates", style = MaterialTheme.typography.titleMedium)
+                Text("Installed version: " + updateState.currentVersionName, color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Last checked: " + (updateState.lastCheckedAtMs?.let {
+                        android.text.format.DateFormat.format("dd MMM yyyy, hh:mm a", it).toString()
+                    } ?: "Not checked yet"),
+                    color = InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Check on launch", style = MaterialTheme.typography.bodyLarge)
+                        Text("Also checks every 6 hours while the app is running.", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = updateState.checkOnLaunch,
+                        onCheckedChange = updateManager::setCheckOnLaunch
+                    )
+                }
                 Text(
                     updateState.message,
                     color = if (updateState.updateAvailable) InkPalette.success else InkPalette.secondaryText,
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (updateState.downloading) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = updateState.downloadProgress.coerceIn(0f, 1f),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = InkPalette.accent,
+                        trackColor = InkPalette.raised
+                    )
+                    Text(
+                        "Download " + (updateState.downloadProgress * 100f).toInt() + "%",
+                        color = InkPalette.secondaryText,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+                if (updateState.releaseNotes.isNotBlank()) {
+                    Text("Release notes", style = MaterialTheme.typography.labelLarge)
+                    Text(updateState.releaseNotes.take(1800), color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                }
                 if (!updateState.tokenConfigured) {
                     OutlinedTextField(
                         value = updateToken,
