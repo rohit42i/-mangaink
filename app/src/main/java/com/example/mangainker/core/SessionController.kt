@@ -46,6 +46,7 @@ class SessionController(context: Context) {
     private var activeTraceIsTest = false
     private var pendingResumePaths: List<List<GesturePoint>>? = null
     private var pendingResumeOffset = 0
+    private var lastMappedTracePaths: List<List<GesturePoint>>? = null
 
     fun setScreenCaptureState(active: Boolean, reason: String? = null) {
         mutableState.update {
@@ -861,6 +862,7 @@ class SessionController(context: Context) {
             mutableState.update { it.copy(isError = true, message = "No valid outline paths could be mapped to the calibrated canvas.") }
             return
         }
+        lastMappedTracePaths = mappedPaths
         startPlayback(mappedPaths, isTest = false)
     }
 
@@ -908,6 +910,15 @@ class SessionController(context: Context) {
                 completedPaths = if (isTest) 0 else completedOffset,
                 totalPaths = allPaths.size,
                 failedPaths = 0,
+                pathLog = if (isTest) state.value.pathLog else {
+                    val existing = state.value.pathLog.associateBy { it.pathNumber }
+                    allPaths.indices.map { index ->
+                        val number = index + 1
+                        if (number <= completedOffset) PathLogEntry(number, "done", "Completed before recovery")
+                        else if (completedOffset > 0 && existing[number]?.status == "pending") PathLogEntry(number, "pending")
+                        else PathLogEntry(number, "pending")
+                    }
+                },
                 resumeAvailable = false,
                 progress = if (isTest) 0f else completedOffset.toFloat() / allPaths.size.coerceAtLeast(1),
                 message = if (isTest) "Drawing the alignment test inside the calibrated page." else if (completedOffset > 0) {
@@ -932,7 +943,21 @@ class SessionController(context: Context) {
                     GestureResult.Cancelled -> "Cancelled"
                     is GestureResult.Failed -> "Failed: " + result.reason
                 }
-                updateLastGestureResult("Path " + (pathNumber + completedOffset) + " · segment " + segment.index + ": " + label)
+                val absolutePath = pathNumber + completedOffset
+                updateLastGestureResult("Path " + absolutePath + " · segment " + segment.index + ": " + label)
+                if (!isTest && result != GestureResult.Completed) {
+                    mutableState.update { current ->
+                        val updated = current.pathLog.map { entry ->
+                            when {
+                                entry.pathNumber == absolutePath -> PathLogEntry(absolutePath, "failed", label)
+                                entry.pathNumber > absolutePath && entry.status == "pending" ->
+                                    PathLogEntry(entry.pathNumber, "skipped", "Stopped after path " + absolutePath + " failed")
+                                else -> entry
+                            }
+                        }
+                        current.copy(pathLog = updated, failedPaths = current.failedPaths + 1)
+                    }
+                }
             },
             onPathProgress = { completed, pathTotal ->
                 val totalCompleted = completedOffset + completed
@@ -941,6 +966,11 @@ class SessionController(context: Context) {
                     it.copy(
                         currentPath = (totalCompleted + 1).coerceAtMost(totalCount),
                         completedPaths = if (isTest) 0 else totalCompleted,
+                        pathLog = if (isTest) current.pathLog else current.pathLog.map { entry ->
+                            if (entry.pathNumber <= totalCompleted) {
+                                PathLogEntry(entry.pathNumber, "done", "Gesture path completed")
+                            } else entry
+                        },
                         progress = if (isTest) 0f else totalCompleted.toFloat() / totalCount
                     )
                 }
