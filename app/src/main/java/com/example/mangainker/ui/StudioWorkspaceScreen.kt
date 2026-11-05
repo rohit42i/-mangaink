@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ import kotlin.math.min
 import kotlin.math.max
 
 private enum class StudioTool(val label: String, val help: String) {
+    SELECT("Select / Edit", "Tap an element to select it. Drag to move it or its lower-right handle to resize."),
     PANEL("Panel", "Drag to add a panel frame."),
     TONE("Tone", "Drag an area to add a dotted screentone."),
     GRADIENT("Gradient", "Drag an area for a grayscale gradient."),
@@ -72,6 +74,9 @@ fun StudioWorkspaceScreen(
     var activeTool by remember { mutableStateOf(StudioTool.PANEL) }
     var dragStart by remember { mutableStateOf<Offset?>(null) }
     var dragCurrent by remember { mutableStateOf<Offset?>(null) }
+    var selectedElementId by remember { mutableStateOf<String?>(null) }
+    var draggedElementId by remember { mutableStateOf<String?>(null) }
+    var resizeDraggedElement by remember { mutableStateOf(false) }
     var editingElementId by remember { mutableStateOf<String?>(null) }
     var editingText by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("Create a project from an imported page, or open a saved project.") }
@@ -101,6 +106,7 @@ fun StudioWorkspaceScreen(
             }
             page = loaded.page
             project = loaded.project
+            selectedElementId = null
             projectTitle = loaded.project.title
             activeTool = StudioTool.PANEL
             message = "Opened " + loaded.project.title + ". Changes are saved locally."
@@ -205,6 +211,7 @@ fun StudioWorkspaceScreen(
         } else {
             val currentProject = project!!
             val currentPage = page!!
+            val selectedElement = currentProject.elements.firstOrNull { it.id == selectedElementId }
 
             // The workspace preview uses the exact compositor used by PNG export.
             val previewBitmap = remember(currentPage, currentProject) {
@@ -274,7 +281,27 @@ fun StudioWorkspaceScreen(
                             contentScale = ContentScale.Fit
                         )
                         Canvas(
-                            Modifier.fillMaxSize().pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements) {
+                            Modifier.fillMaxSize()
+                                .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements) {
+                                    if (activeTool == StudioTool.SELECT) {
+                                        detectTapGestures { point ->
+                                            val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
+                                            val drawnWidth = currentPage.width * scale
+                                            val drawnHeight = currentPage.height * scale
+                                            val insetX = (size.width - drawnWidth) / 2f
+                                            val insetY = (size.height - drawnHeight) / 2f
+                                            val x = ((point.x - insetX) / drawnWidth).coerceIn(0f, 1f)
+                                            val y = ((point.y - insetY) / drawnHeight).coerceIn(0f, 1f)
+                                            val hit = currentProject.elements.lastOrNull {
+                                                x >= it.left && x <= it.right && y >= it.top && y <= it.bottom
+                                            }
+                                            selectedElementId = hit?.id
+                                            message = if (hit == null) "No element at that position." else
+                                                "Selected ${hit.type}. Drag to move it or its lower-right handle to resize."
+                                        }
+                                    }
+                                }
+                                .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements, selectedElementId) {
                                 val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
                                 val drawnWidth = currentPage.width * scale
                                 val drawnHeight = currentPage.height * scale
@@ -286,8 +313,26 @@ fun StudioWorkspaceScreen(
                                 )
                                 detectDragGestures(
                                     onDragStart = { point ->
-                                        dragStart = normalized(point)
-                                        dragCurrent = normalized(point)
+                                        val normalizedPoint = normalized(point)
+                                        dragStart = normalizedPoint
+                                        dragCurrent = normalizedPoint
+                                        if (activeTool == StudioTool.SELECT) {
+                                            val hit = currentProject.elements.lastOrNull { element ->
+                                                normalizedPoint.x >= element.left - 0.035f &&
+                                                    normalizedPoint.x <= element.right + 0.035f &&
+                                                    normalizedPoint.y >= element.top - 0.035f &&
+                                                    normalizedPoint.y <= element.bottom + 0.035f
+                                            }
+                                            selectedElementId = hit?.id
+                                            draggedElementId = hit?.id
+                                            resizeDraggedElement = hit != null &&
+                                                normalizedPoint.x >= hit.right - 0.04f &&
+                                                normalizedPoint.y >= hit.bottom - 0.04f
+                                        } else {
+                                            selectedElementId = null
+                                            draggedElementId = null
+                                            resizeDraggedElement = false
+                                        }
                                     },
                                     onDrag = { change, _ ->
                                         dragCurrent = normalized(change.position)
@@ -297,44 +342,92 @@ fun StudioWorkspaceScreen(
                                         val start = dragStart
                                         val end = dragCurrent
                                         if (start != null && end != null) {
-                                            val left = min(start.x, end.x)
-                                            val top = min(start.y, end.y)
-                                            val right = max(start.x, end.x)
-                                            val bottom = max(start.y, end.y)
-                                            if (right - left >= 0.015f && bottom - top >= 0.015f) {
-                                                val newElement = StudioElement(
-                                                    type = activeTool.name.lowercase(),
-                                                    left = left,
-                                                    top = top,
-                                                    right = right,
-                                                    bottom = bottom,
-                                                    text = when (activeTool) {
-                                                        StudioTool.BUBBLE -> "Dialogue"
-                                                        StudioTool.SFX -> "SFX!"
-                                                        else -> ""
+                                            if (activeTool == StudioTool.SELECT) {
+                                                val target = currentProject.elements.firstOrNull { it.id == draggedElementId }
+                                                if (target != null) {
+                                                    val updatedElement = if (resizeDraggedElement) {
+                                                        target.copy(
+                                                            right = end.x.coerceIn(target.left + 0.02f, 1f),
+                                                            bottom = end.y.coerceIn(target.top + 0.02f, 1f)
+                                                        )
+                                                    } else {
+                                                        val elementWidth = target.right - target.left
+                                                        val elementHeight = target.bottom - target.top
+                                                        val left = (target.left + end.x - start.x).coerceIn(0f, 1f - elementWidth)
+                                                        val top = (target.top + end.y - start.y).coerceIn(0f, 1f - elementHeight)
+                                                        target.copy(
+                                                            left = left, top = top,
+                                                            right = left + elementWidth, bottom = top + elementHeight
+                                                        )
                                                     }
-                                                )
-                                                val updated = currentProject.copy(elements = currentProject.elements + newElement)
-                                                save(updated)
-                                                if (activeTool == StudioTool.BUBBLE || activeTool == StudioTool.SFX) {
-                                                    editingElementId = newElement.id
-                                                    editingText = newElement.text
+                                                    save(currentProject.copy(elements = currentProject.elements.map {
+                                                        if (it.id == target.id) updatedElement else it
+                                                    }))
+                                                    selectedElementId = target.id
+                                                    message = if (resizeDraggedElement) "Element resized." else "Element moved."
+                                                } else {
+                                                    message = "No element selected. Tap an element first."
                                                 }
                                             } else {
-                                                message = "Drag a larger area to create an element."
+                                                val left = min(start.x, end.x)
+                                                val top = min(start.y, end.y)
+                                                val right = max(start.x, end.x)
+                                                val bottom = max(start.y, end.y)
+                                                if (right - left >= 0.015f && bottom - top >= 0.015f) {
+                                                    val newElement = StudioElement(
+                                                        type = activeTool.name.lowercase(),
+                                                        left = left,
+                                                        top = top,
+                                                        right = right,
+                                                        bottom = bottom,
+                                                        text = when (activeTool) {
+                                                            StudioTool.BUBBLE -> "Dialogue"
+                                                            StudioTool.SFX -> "SFX!"
+                                                            else -> ""
+                                                        }
+                                                    )
+                                                    save(currentProject.copy(elements = currentProject.elements + newElement))
+                                                    selectedElementId = newElement.id
+                                                    if (activeTool == StudioTool.BUBBLE || activeTool == StudioTool.SFX) {
+                                                        editingElementId = newElement.id
+                                                        editingText = newElement.text
+                                                    }
+                                                } else {
+                                                    message = "Drag a larger area to create an element."
+                                                }
                                             }
                                         }
+                                        draggedElementId = null
+                                        resizeDraggedElement = false
                                         dragStart = null
                                         dragCurrent = null
                                     },
                                     onDragCancel = {
+                                        draggedElementId = null
+                                        resizeDraggedElement = false
                                         dragStart = null
                                         dragCurrent = null
                                     }
                                 )
                             }
                         ) {
-                            if (dragStart != null && dragCurrent != null) {
+                            if (selectedElement != null) {
+                                val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
+                                val offsetX = (size.width - currentPage.width * scale) / 2f
+                                val offsetY = (size.height - currentPage.height * scale) / 2f
+                                val left = offsetX + selectedElement.left * currentPage.width * scale
+                                val top = offsetY + selectedElement.top * currentPage.height * scale
+                                val right = offsetX + selectedElement.right * currentPage.width * scale
+                                val bottom = offsetY + selectedElement.bottom * currentPage.height * scale
+                                drawRect(
+                                    color = InkPalette.accent,
+                                    topLeft = Offset(left, top),
+                                    size = Size(right - left, bottom - top),
+                                    style = Stroke(width = 2.dp.toPx())
+                                )
+                                drawCircle(InkPalette.accent, radius = 6.dp.toPx(), center = Offset(right, bottom))
+                            }
+                            if (dragStart != null && dragCurrent != null && activeTool != StudioTool.SELECT) {
                                 val start = dragStart!!
                                 val end = dragCurrent!!
                                 val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
@@ -356,6 +449,54 @@ fun StudioWorkspaceScreen(
                         }
                     }
 
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                val target = selectedElement
+                                if (target != null) {
+                                    editingElementId = target.id
+                                    editingText = target.text
+                                }
+                            },
+                            enabled = selectedElement?.type == "bubble" || selectedElement?.type == "sfx",
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Edit text") }
+                        OutlinedButton(
+                            onClick = {
+                                val target = selectedElement
+                                if (target != null) {
+                                    save(currentProject.copy(elements = currentProject.elements.filterNot { it.id == target.id }))
+                                    selectedElementId = null
+                                    message = "Selected element deleted."
+                                }
+                            },
+                            enabled = selectedElement != null,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Delete selected") }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                val target = selectedElement
+                                if (target != null) {
+                                    val elementWidth = target.right - target.left
+                                    val elementHeight = target.bottom - target.top
+                                    val left = (target.left + 0.02f).coerceAtMost(1f - elementWidth)
+                                    val top = (target.top + 0.02f).coerceAtMost(1f - elementHeight)
+                                    val duplicate = StudioElement(
+                                        type = target.type, left = left, top = top,
+                                        right = left + elementWidth, bottom = top + elementHeight,
+                                        text = target.text
+                                    )
+                                    save(currentProject.copy(elements = currentProject.elements + duplicate))
+                                    selectedElementId = duplicate.id
+                                    message = "Element duplicated."
+                                }
+                            },
+                            enabled = selectedElement != null,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Duplicate selected") }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         OutlinedButton(
                             onClick = {
@@ -392,7 +533,7 @@ fun StudioWorkspaceScreen(
     if (editingElementId != null) {
         AlertDialog(
             onDismissRequest = { editingElementId = null },
-            title = { Text(if (project?.elements?.lastOrNull { it.id == editingElementId }?.type == "bubble") "Edit dialogue" else "Edit sound effect") },
+            title = { Text(if (project?.elements?.firstOrNull { it.id == editingElementId }?.type == "bubble") "Edit dialogue" else "Edit sound effect") },
             text = {
                 OutlinedTextField(
                     value = editingText,
