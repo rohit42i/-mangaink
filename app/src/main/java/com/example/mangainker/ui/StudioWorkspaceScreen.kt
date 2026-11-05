@@ -29,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,7 +42,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -206,6 +206,21 @@ fun StudioWorkspaceScreen(
             val currentProject = project!!
             val currentPage = page!!
 
+            // The workspace preview uses the exact compositor used by PNG export.
+            val previewBitmap = remember(currentPage, currentProject) {
+                store.renderPage(currentPage, currentProject)
+            }
+            DisposableEffect(currentPage) {
+                onDispose {
+                    if (!currentPage.isRecycled) currentPage.recycle()
+                }
+            }
+            DisposableEffect(previewBitmap) {
+                onDispose {
+                    if (!previewBitmap.isRecycled) previewBitmap.recycle()
+                }
+            }
+
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = {
                     project = null
@@ -253,7 +268,7 @@ fun StudioWorkspaceScreen(
                         Modifier.fillMaxWidth().height(440.dp).clip(RoundedCornerShape(9.dp)).background(Color(0xFF101014))
                     ) {
                         Image(
-                            bitmap = currentPage.asImageBitmap(),
+                            bitmap = previewBitmap.asImageBitmap(),
                             contentDescription = "Comic project page",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Fit
@@ -319,95 +334,12 @@ fun StudioWorkspaceScreen(
                                 )
                             }
                         ) {
-                            val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
-                            val offsetX = (size.width - currentPage.width * scale) / 2f
-                            val offsetY = (size.height - currentPage.height * scale) / 2f
-                            currentProject.elements.forEach { element ->
-                                val left = offsetX + element.left * currentPage.width * scale
-                                val top = offsetY + element.top * currentPage.height * scale
-                                val right = offsetX + element.right * currentPage.width * scale
-                                val bottom = offsetY + element.bottom * currentPage.height * scale
-                                val rect = androidx.compose.ui.geometry.Offset(left, top)
-                                val rectSize = Size(right - left, bottom - top)
-                                when (element.type) {
-                                    "panel" -> drawRect(Color.Black, rect, rectSize, style = Stroke(width = 2.dp.toPx()))
-                                    "tone" -> {
-                                        var y = top + 5f
-                                        while (y < bottom) {
-                                            var x = left + 5f
-                                            while (x < right) {
-                                                drawCircle(Color.Black, radius = 1.2f, center = Offset(x, y))
-                                                x += 8f
-                                            }
-                                            y += 8f
-                                        }
-                                        drawRect(Color.Black, rect, rectSize, style = Stroke(width = 1.dp.toPx()))
-                                    }
-                                    "gradient" -> {
-                                        for (step in 0..7) {
-                                            drawRect(
-                                                Color.Black.copy(alpha = 0.04f + step * 0.035f),
-                                                topLeft = Offset(left + rectSize.width * step / 8f, top),
-                                                size = Size(rectSize.width / 8f + 1f, rectSize.height)
-                                            )
-                                        }
-                                    }
-                                    "speed" -> {
-                                        val spacing = maxOf(7f, rectSize.height / 18f)
-                                        var y = top
-                                        while (y < bottom) {
-                                            val endY = (y + rectSize.width * 0.30f).coerceIn(top, bottom)
-                                            drawLine(
-                                                Color.Black,
-                                                start = Offset(left, y.coerceIn(top, bottom)),
-                                                end = Offset(right, endY),
-                                                strokeWidth = 1.3f
-                                            )
-                                            y += spacing
-                                        }
-                                        drawRect(Color.Black, rect, rectSize, style = Stroke(width = 1.dp.toPx()))
-                                    }
-                                    "bubble" -> {
-                                        drawRoundRect(Color.White, rect, rectSize, cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f))
-                                        drawRoundRect(Color.Black, rect, rectSize, cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f), style = Stroke(width = 2.dp.toPx()))
-                                        val tailTip = Offset(
-                                            (left + right) / 2f,
-                                            (bottom + (bottom - top) * 0.14f).coerceAtMost(size.height - 3f)
-                                        )
-                                        drawLine(Color.Black, Offset((left + right) / 2f - 10f, bottom - 1f), tailTip, strokeWidth = 2.dp.toPx())
-                                        drawLine(Color.Black, Offset((left + right) / 2f + 10f, bottom - 1f), tailTip, strokeWidth = 2.dp.toPx())
-                                        drawContext.canvas.nativeCanvas.drawText(
-                                            element.text,
-                                            (left + right) / 2f,
-                                            (top + bottom) / 2f,
-                                            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                                                color = android.graphics.Color.BLACK
-                                                textSize = 15.sp.toPx()
-                                                textAlign = android.graphics.Paint.Align.CENTER
-                                            }
-                                        )
-                                    }
-                                    "sfx" -> {
-                                        val labelX = (left + right) / 2f
-                                        val labelY = (top + bottom) / 2f
-                                        val outlinePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                                            color = android.graphics.Color.WHITE
-                                            textSize = minOf(30.sp.toPx(), (bottom - top) * 0.7f)
-                                            textAlign = android.graphics.Paint.Align.CENTER
-                                            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD_ITALIC)
-                                            style = android.graphics.Paint.Style.STROKE
-                                            strokeWidth = 3f
-                                        }
-                                        drawContext.canvas.nativeCanvas.drawText(element.text, labelX, labelY, outlinePaint)
-                                        outlinePaint.style = android.graphics.Paint.Style.FILL
-                                        outlinePaint.color = android.graphics.Color.BLACK
-                                        drawContext.canvas.nativeCanvas.drawText(element.text, labelX, labelY, outlinePaint)
-                                    }
-                                }
-                            }
                             if (dragStart != null && dragCurrent != null) {
                                 val start = dragStart!!
                                 val end = dragCurrent!!
+                                val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
+                                val offsetX = (size.width - currentPage.width * scale) / 2f
+                                val offsetY = (size.height - currentPage.height * scale) / 2f
                                 drawRect(
                                     color = InkPalette.accent,
                                     topLeft = Offset(
