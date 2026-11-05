@@ -119,4 +119,42 @@ class OutlineProcessorTest {
         }
     }
 
+    @Test
+    fun scansSevenSeparatedPanelFramesOnOneFullPage() {
+        val width = 420
+        val height = 620
+        val pixels = ByteArray(width * height) { 0xff.toByte() }
+        val panels = listOf(
+            20 to 20, 220 to 20,
+            20 to 170, 220 to 170,
+            20 to 320, 220 to 320,
+            20 to 470
+        )
+
+        panels.forEach { (left, top) ->
+            val right = left + 160
+            val bottom = top + 110
+            for (x in left..right) {
+                for (thickness in 0..2) {
+                    pixels[(top + thickness) * width + x] = 0
+                    pixels[(bottom - thickness) * width + x] = 0
+                }
+            }
+            for (y in top..bottom) {
+                for (thickness in 0..2) {
+                    pixels[y * width + left + thickness] = 0
+                    pixels[y * width + right - thickness] = 0
+                }
+            }
+        }
+
+        val result = OutlineProcessor.process(
+            pixels, width, height, minComponentPixels = 1, smoothing = 0f, detailPreservation = 1f
+        )
+
+        assertEquals("Every separated panel frame must produce a path", 7, result.paths.size)
+        assertTrue("All detected paths must stay inside the full page", result.paths.flatMap { it.points }.all {
+            it.x in 0f..(width - 1).toFloat() && it.y in 0f..(height - 1).toFloat()
+        })
+    }
 }
