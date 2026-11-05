@@ -368,6 +368,12 @@ fun StudioWorkspaceScreen(
                                     "bubble" -> {
                                         drawRoundRect(Color.White, rect, rectSize, cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f))
                                         drawRoundRect(Color.Black, rect, rectSize, cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f), style = Stroke(width = 2.dp.toPx()))
+                                        val tailTip = Offset(
+                                            (left + right) / 2f,
+                                            (bottom + (bottom - top) * 0.14f).coerceAtMost(size.height - 3f)
+                                        )
+                                        drawLine(Color.Black, Offset((left + right) / 2f - 10f, bottom - 1f), tailTip, strokeWidth = 2.dp.toPx())
+                                        drawLine(Color.Black, Offset((left + right) / 2f + 10f, bottom - 1f), tailTip, strokeWidth = 2.dp.toPx())
                                         drawContext.canvas.nativeCanvas.drawText(
                                             element.text,
                                             (left + right) / 2f,
@@ -380,17 +386,20 @@ fun StudioWorkspaceScreen(
                                         )
                                     }
                                     "sfx" -> {
-                                        drawContext.canvas.nativeCanvas.drawText(
-                                            element.text,
-                                            (left + right) / 2f,
-                                            (top + bottom) / 2f,
-                                            android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                                                color = android.graphics.Color.BLACK
-                                                textSize = minOf(30.sp.toPx(), (bottom - top) * 0.7f)
-                                                textAlign = android.graphics.Paint.Align.CENTER
-                                                typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD_ITALIC)
-                                            }
-                                        )
+                                        val labelX = (left + right) / 2f
+                                        val labelY = (top + bottom) / 2f
+                                        val outlinePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                                            color = android.graphics.Color.WHITE
+                                            textSize = minOf(30.sp.toPx(), (bottom - top) * 0.7f)
+                                            textAlign = android.graphics.Paint.Align.CENTER
+                                            typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD_ITALIC)
+                                            style = android.graphics.Paint.Style.STROKE
+                                            strokeWidth = 3f
+                                        }
+                                        drawContext.canvas.nativeCanvas.drawText(element.text, labelX, labelY, outlinePaint)
+                                        outlinePaint.style = android.graphics.Paint.Style.FILL
+                                        outlinePaint.color = android.graphics.Color.BLACK
+                                        drawContext.canvas.nativeCanvas.drawText(element.text, labelX, labelY, outlinePaint)
                                     }
                                 }
                             }
