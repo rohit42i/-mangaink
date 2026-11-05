@@ -46,6 +46,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.min
+import kotlin.math.max
 
 private enum class StudioTool(val label: String, val help: String) {
     PANEL("Panel", "Drag to add a panel frame."),
