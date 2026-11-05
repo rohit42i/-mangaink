@@ -21,6 +21,18 @@ import com.example.mangainker.overlay.FloatingPanelService
 import com.example.mangainker.update.GitHubUpdateManager
 import com.example.mangainker.ui.StudioProject
 import com.example.mangainker.ui.StudioProjectStore
+import java.io.File
+import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val controller by lazy { (application as MangaInkerApp).sessionController }
@@ -30,25 +42,32 @@ class MainActivity : ComponentActivity() {
     private var navigateToSettings by androidx.compose.runtime.mutableStateOf(false)
     private var pendingExportBitmap: Bitmap? = null
     private var pendingCbzExport: Pair<StudioProjectStore, StudioProject>? = null
+    private val exportScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val createPngDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
         val bitmap = pendingExportBitmap
         pendingExportBitmap = null
         if (uri == null || bitmap == null) {
-            bitmap?.recycle()
+            bitmap?.takeIf { !it.isRecycled }?.recycle()
             return@registerForActivityResult
         }
-        try {
-            contentResolver.openOutputStream(uri)?.use { output ->
-                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                    "Android could not encode the PNG."
+        exportScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri)?.use { output ->
+                        check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                            "Android could not encode the PNG."
+                        }
+                    } ?: error("Android could not open the selected export destination.")
                 }
-            } ?: error("Android could not open the selected export destination.")
-            Toast.makeText(this, "PNG exported successfully.", Toast.LENGTH_LONG).show()
-        } catch (error: Exception) {
-            Toast.makeText(this, "PNG export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
-        } finally {
-            if (!bitmap.isRecycled) bitmap.recycle()
+                Toast.makeText(this@MainActivity, "PNG exported successfully.", Toast.LENGTH_LONG).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Toast.makeText(this@MainActivity, "PNG export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+            } finally {
+                if (!bitmap.isRecycled) bitmap.recycle()
+            }
         }
     }
 
@@ -58,13 +77,32 @@ class MainActivity : ComponentActivity() {
         val pending = pendingCbzExport
         pendingCbzExport = null
         if (uri == null || pending == null) return@registerForActivityResult
-        try {
-            contentResolver.openOutputStream(uri)?.use { output ->
-                pending.first.writeProjectCbz(pending.second, output)
-            } ?: error("Android could not open the selected CBZ destination.")
-            Toast.makeText(this, "Comic project exported as CBZ.", Toast.LENGTH_LONG).show()
-        } catch (error: Exception) {
-            Toast.makeText(this, "CBZ export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+        exportScope.launch {
+            val temporary = File(cacheDir, "mangainker-${UUID.randomUUID()}.cbz")
+            try {
+                withContext(Dispatchers.IO) {
+                    val exportJob = currentCoroutineContext()[Job]
+                    temporary.outputStream().buffered().use { output ->
+                        pending.first.writeProjectCbz(pending.second, output) {
+                            if (exportJob?.isActive == false) {
+                                throw CancellationException("CBZ export cancelled.")
+                            }
+                        }
+                    }
+                    temporary.inputStream().buffered().use { input ->
+                        contentResolver.openOutputStream(uri)?.buffered()?.use { output ->
+                            input.copyTo(output)
+                        } ?: error("Android could not open the selected CBZ destination.")
+                    }
+                }
+                Toast.makeText(this@MainActivity, "Comic project exported as CBZ.", Toast.LENGTH_LONG).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                Toast.makeText(this@MainActivity, "CBZ export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+            } finally {
+                temporary.delete()
+            }
         }
     }
 
@@ -172,6 +210,14 @@ class MainActivity : ComponentActivity() {
         }
         val intent = Intent(this, FloatingPanelService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+    }
+
+    override fun onDestroy() {
+        exportScope.cancel()
+        pendingExportBitmap?.takeIf { !it.isRecycled }?.recycle()
+        pendingExportBitmap = null
+        pendingCbzExport = null
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
