@@ -21,6 +21,43 @@ class OutlineProcessorTest {
     }
 
     @Test
+    fun generatedPathsAreFiniteInBoundsAndHavePositiveLength() {
+        val width = 72
+        val height = 72
+        val pixels = ByteArray(width * height) { 0xff.toByte() }
+        for (x in 12..59) {
+            for (thickness in 0..3) {
+                pixels[(18 + thickness) * width + x] = 0
+                pixels[(53 + thickness) * width + x] = 0
+            }
+        }
+        for (y in 18..56) {
+            for (thickness in 0..3) {
+                pixels[y * width + 12 + thickness] = 0
+                pixels[y * width + 56 + thickness] = 0
+            }
+        }
+
+        val result = OutlineProcessor.process(
+            pixels,
+            width,
+            height,
+            minComponentPixels = 1,
+            smoothing = 0f,
+            detailPreservation = 1f
+        )
+
+        assertTrue("The panel outline should produce drawable paths", result.paths.isNotEmpty())
+        assertTrue("Every generated path must contain at least two points", result.paths.all { it.points.size >= 2 })
+        assertTrue("Every generated path must have positive length", result.paths.all { it.length > 0f })
+        assertTrue("Generated coordinates must be finite and remain on the source page", result.paths.flatMap { it.points }.all {
+            it.x.isFinite() && it.y.isFinite() &&
+                it.x in 0f..(width - 1).toFloat() &&
+                it.y in 0f..(height - 1).toFloat()
+        })
+    }
+
+    @Test
     fun filtersIsolatedDotsWhenSpeckRemovalIsEnabled() {
         val width = 64
         val height = 64
