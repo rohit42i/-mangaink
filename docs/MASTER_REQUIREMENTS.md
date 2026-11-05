@@ -103,7 +103,9 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 - Publish releases from the trusted main-branch workflow only.
 - Provide clear update states and errors; preserve the installed app and local settings across upgrades.
 
-**Current evidence:** in-app update manager, encrypted token storage, checksum verification and installer handoff exist in source. Release publishing is configured for main after PR #5 is merged. The first-install signing migration and in-app update path are not device-tested. Audit repository handling of the signing keystore before treating release security as complete.
+**Current evidence:** in-app update manager, encrypted token storage, checksum verification and installer handoff exist in source. The app now retains the established `com.rohit.mangainker` application ID, and the release manifest uses the same ID. Release publishing is configured for main after PR #5 is merged. The first-install signing migration and in-app update path are not device-tested.
+
+**Release security blocker:** the current branch includes a release keystore file under `.ci/` and its passwords are written in the Gradle signing configuration. The repository is private, but this is not a production-grade secret-management setup. Before public distribution or granting repository access to anyone else, move the signing material into GitHub Actions secrets and rotate the key if its access scope is no longer trusted. The available GitHub connection cannot create repository Actions secrets, so this remains an owner-side configuration step.
 
 ## H. Required verification before calling it complete
 
@@ -132,6 +134,7 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 - Turning off the floating overlay now also cancels active scanning and tracing.
 - Added regression coverage for a seven-panel page and for cancellation during outline extraction.
 - Restricted GitHub Contents write permission to the main-only release publishing job; ordinary verification builds use read-only repository permission.
+- Restored the existing Android application ID `com.rohit.mangainker` and aligned the release update manifest.
 
 These are source changes, not proof of device behaviour. The CI job still needs to report green, and the OPPO F29 checklist must be completed physically.
 
