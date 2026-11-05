@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.example.mangainker.MangaInkerApp
 import com.example.mangainker.core.InkPoint
+import com.example.mangainker.core.Logger
 import com.example.mangainker.core.SessionController
 import com.example.mangainker.core.SessionCommand
 import com.example.mangainker.capture.ScreenCaptureService
