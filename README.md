@@ -14,7 +14,7 @@ Manga Inker is an Android tool that scans a complete manga/comic page, extracts 
 
 ## Floating panel
 
-The compact bubble can be dragged and snapped to the screen edge. Expand it for Test/Start, Pause/Resume, Stop, and More. More includes Select scan area, Scan selected area, Scan full page, Calibrate page corners, and Clear page session. Minimize collapses the panel without ending the session. The running border and current path progress remain visible. Holding volume-down for about 1.5 seconds is an extra stop action.
+The compact bubble can be dragged and snapped to the screen edge. Expand it for Test/Start, Pause/Resume, immediate Stop, and More. Turning the overlay off also stops an active trace or scan so work cannot continue invisibly without controls. More includes Select scan area, Scan selected area, Scan full page, Stop scanning, Calibrate page corners, and Clear page session. During a scan, the panel shows the current processing stage and progress. Stop scanning cancels the active import/scan without clearing the already loaded page. Minimize collapses the panel without ending the session. The running border and current path progress remain visible. Holding volume-down for about 1.5 seconds is an extra stop action.
 
 The overlay runs as a user-started foreground service with a persistent notification. If ibisPaint leaves the foreground or Accessibility disconnects, the active trace stops rather than retrying blindly.
 
