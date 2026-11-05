@@ -88,7 +88,8 @@ fun MangaInkerRoot(
     onOpenAppInfo: () -> Unit,
     onShowFloatingPanel: () -> Unit,
     onOpenIbisPaint: () -> Unit,
-    onExportImage: (Bitmap) -> Unit
+    onExportImage: (Bitmap) -> Unit,
+    onExportCbz: (StudioProjectStore, StudioProject) -> Unit
 ) {
     val state by controller.state.collectAsState()
     val updateState by updateManager.state.collectAsState()
@@ -155,7 +156,8 @@ fun MangaInkerRoot(
                 modifier = Modifier.padding(padding),
                 importedPage = state.sourceBitmap,
                 store = studioStore,
-                onExportImage = onExportImage
+                onExportImage = onExportImage,
+                onExportCbz = { currentProject -> onExportCbz(studioStore, currentProject) }
             )
             AppTab.TraceLog -> TraceLogScreen(
                 modifier = Modifier.padding(padding),
