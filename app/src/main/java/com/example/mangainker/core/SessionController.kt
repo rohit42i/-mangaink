@@ -1017,8 +1017,8 @@ class SessionController(context: Context) {
             onPathProgress = { completed, pathTotal ->
                 val totalCompleted = completedOffset + completed
                 val totalCount = allPaths.size.coerceAtLeast(1)
-                mutableState.update {
-                    it.copy(
+                mutableState.update { current ->
+                    current.copy(
                         currentPath = (totalCompleted + 1).coerceAtMost(totalCount),
                         completedPaths = if (isTest) 0 else totalCompleted,
                         pathLog = if (isTest) current.pathLog else current.pathLog.map { entry ->
