@@ -42,4 +42,23 @@ class PageBoundsDetectorTest {
 
         assertNull(PageBoundsDetector.detect(gray, width, height))
     }
+    @Test
+    fun refusesToCropToLargestPanelWhenPageHasMultipleDisconnectedRegions() {
+        val width = 400
+        val height = 700
+        val gray = ByteArray(width * height) { 62 }
+
+        // The first panel is large enough to pass the old single-component
+        // test. The smaller second panel is still part of the same page.
+        for (y in 80 until 450) {
+            for (x in 60 until 340) gray[y * width + x] = 245.toByte()
+        }
+        for (y in 470 until 620) {
+            for (x in 60 until 340) gray[y * width + x] = 245.toByte()
+        }
+
+        // Ambiguous detection must preserve the full screenshot for manual selection.
+        assertNull(PageBoundsDetector.detect(gray, width, height))
+    }
+
 }
