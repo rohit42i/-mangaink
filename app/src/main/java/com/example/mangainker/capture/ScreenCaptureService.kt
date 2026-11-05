@@ -16,6 +16,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
+import android.os.Looper
 import android.os.HandlerThread
 import android.os.IBinder
 import android.view.WindowManager
@@ -33,6 +34,16 @@ class ScreenCaptureService : Service() {
     private var worker: HandlerThread? = null
     private var seenFrames = 0
     private var completed = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val timeoutTask = Runnable {
+        if (!completed) {
+            (application as MangaInkerApp).sessionController.setScreenCaptureState(
+                false,
+                "ibisPaint was not detected within 20 seconds. Open ibisPaint and try again."
+            )
+            stopSelf()
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
@@ -49,6 +60,8 @@ class ScreenCaptureService : Service() {
         }
 
         startCaptureNotification()
+        (application as MangaInkerApp).sessionController.setScreenCaptureState(true)
+        mainHandler.postDelayed(timeoutTask, 20_000L)
         try {
             val manager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             projection = manager.getMediaProjection(resultCode, resultData)
@@ -89,6 +102,7 @@ class ScreenCaptureService : Service() {
                     val frame = Bitmap.createBitmap(padded, 0, 0, image.width, image.height)
                     padded.recycle()
                     completed = true
+                    mainHandler.removeCallbacks(timeoutTask)
                     app.sessionController.importCapturedBitmap(frame)
                     Logger.info("Captured ibisPaint frame locally: ${frame.width}x${frame.height}")
                     stopSelf()
@@ -112,7 +126,9 @@ class ScreenCaptureService : Service() {
             )
             Logger.info("Recording screen. Waiting for ibisPaint to become foreground.")
         } catch (error: Exception) {
-            Logger.error("Unable to start screen capture: ${error.message ?: error.javaClass.simpleName}")
+            val reason = "Unable to start screen capture: ${error.message ?: error.javaClass.simpleName}"
+            (application as MangaInkerApp).sessionController.setScreenCaptureState(false, reason)
+            Logger.error(reason)
             stopSelf()
         }
         return START_NOT_STICKY
@@ -145,6 +161,15 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(timeoutTask)
+        if (!completed) {
+            (application as? MangaInkerApp)?.sessionController?.setScreenCaptureState(
+                false,
+                "Screen capture stopped before an ibisPaint frame was captured."
+            )
+        } else {
+            (application as? MangaInkerApp)?.sessionController?.setScreenCaptureState(false)
+        }
         display?.release()
         reader?.close()
         projection?.stop()
