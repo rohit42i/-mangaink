@@ -35,6 +35,21 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Tap Stop scanning during a scan and verify it cancels without clearing the imported page.
 - [ ] Turn the overlay off during a scan and verify the operation is cancelled.
 
+## MediaProjection screen capture
+
+- [ ] Open ibisPaint X with a page visible.
+- [ ] From Manga Inker Home, tap Capture ibisPaint screen.
+- [ ] Approve Android's screen-capture consent prompt for this session.
+- [ ] Confirm a persistent Recording screen notification appears.
+- [ ] Confirm Manga Inker returns to ibisPaint and waits for it to be foreground.
+- [ ] Confirm one frame is captured and the recording notification disappears.
+- [ ] Confirm a light artwork canvas is auto-detected and cropped without ibisPaint toolbars.
+- [ ] Test a dark or ambiguous canvas and verify the full frame is retained for manual selection.
+- [ ] Deny the consent prompt and verify the app reports that nothing was captured.
+- [ ] Leave ibisPaint closed and verify the 20-second timeout ends capture with a useful message.
+- [ ] Confirm no screenshot file is created in shared storage or uploaded.
+- [ ] Replace or clear the captured page and verify the previous temporary bitmap is released.
+
 ## Import and full-page scan
 
 - [ ] Import a complete PNG, JPEG or WebP page.
@@ -75,7 +90,8 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Turn the overlay off during tracing and verify tracing is stopped.
 - [ ] Test volume-down long-press stop.
 - [ ] Leave ibisPaint and verify tracing stops.
-- [ ] Interrupt/disable Accessibility and verify recovery state.
+- [ ] Interrupt/disable Accessibility mid-trace and verify the handle turns red and the panel shows Reconnect Accessibility.
+- [ ] Re-enable Accessibility, return to ibisPaint and verify tracing resumes at the next path after the last fully completed path, without replaying completed paths.
 - [ ] Verify running border appears only during active trace.
 
 ## Comic Studio projects and export
