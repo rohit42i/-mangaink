@@ -156,6 +156,24 @@ class StudioProjectStore(context: Context) {
         return updated
     }
 
+    fun renameProject(project: StudioProject, title: String): StudioProject {
+        val safeTitle = title.trim().ifBlank { "Untitled comic project" }.take(60)
+        val updated = project.copy(title = safeTitle, updatedAt = System.currentTimeMillis())
+        saveProject(updated)
+        return updated
+    }
+
+    fun renamePage(project: StudioProject, pageId: String, title: String): StudioProject {
+        val safeTitle = title.trim().ifBlank { "Untitled page" }.take(60)
+        val pages = pagesFor(project).map { page ->
+            if (page.id == pageId) page.copy(title = safeTitle) else page
+        }
+        require(pages.any { it.id == pageId }) { "The selected page no longer exists." }
+        val updated = project.copy(pages = pages)
+        saveProject(updated)
+        return updated
+    }
+
     fun movePage(project: StudioProject, pageId: String, offset: Int): StudioProject {
         val pages = pagesFor(project).toMutableList()
         val index = pages.indexOfFirst { it.id == pageId }
