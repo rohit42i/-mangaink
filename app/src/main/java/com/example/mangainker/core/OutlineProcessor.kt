@@ -17,11 +17,13 @@ object OutlineProcessor {
         minComponentPixels: Int = 3,
         smoothing: Float = 0.28f,
         detailPreservation: Float = 0.78f,
-        cancellationCheck: () -> Unit = {}
+        cancellationCheck: () -> Unit = {},
+        onProgress: (Float, String) -> Unit = { _, _ -> }
     ): ProcessingResult {
         require(width > 2 && height > 2) { "Image is too small to process." }
         require(grayscale.size == width * height) { "Image data does not match its dimensions." }
         cancellationCheck()
+        onProgress(0.30f, "Calculating the page threshold…")
         val threshold = (otsuThreshold(grayscale) + thresholdOffset).coerceIn(8, 248)
         cancellationCheck()
         val mask = ByteArray(grayscale.size)
@@ -35,15 +37,23 @@ object OutlineProcessor {
         }
         if (foreground == 0) throw IllegalArgumentException("No dark outline pixels were found. Try a darker outline or adjust threshold.")
 
+        onProgress(0.43f, "Removing isolated specks…")
         val discarded = removeSmallComponents(mask, width, height, minComponentPixels.coerceAtLeast(1), cancellationCheck)
         val remaining = mask.count { it.toInt() != 0 }
         if (remaining == 0) throw IllegalArgumentException("Only tiny specks were detected. Reduce the speck-removal setting.")
 
+        onProgress(0.55f, "Thinning outlines to centre lines…")
         thinZhangSuen(mask, width, height, cancellationCheck)
         val skeletonCount = mask.count { it.toInt() != 0 }
+        onProgress(0.72f, "Tracing separate strokes and panel borders…")
         val rawPaths = trace(mask, width, height, cancellationCheck)
-        val paths = rawPaths.mapNotNull { raw ->
+        onProgress(0.86f, "Simplifying and smoothing detected paths…")
+        val paths = rawPaths.mapIndexedNotNull { index, raw ->
             cancellationCheck()
+            onProgress(
+                0.86f + 0.12f * ((index + 1).toFloat() / rawPaths.size.coerceAtLeast(1)),
+                "Refining path ${index + 1} of ${rawPaths.size}…"
+            )
             if (raw.size < 2) return@mapNotNull null
             val detail = detailPreservation.coerceIn(0f, 1f)
             val simplifyTolerance = 2.0f - (1.5f * detail)
@@ -56,6 +66,7 @@ object OutlineProcessor {
         }
 
         if (paths.isEmpty()) throw IllegalArgumentException("No usable line paths were reconstructed from this image.")
+        onProgress(0.99f, "Preparing the outline preview…")
         return ProcessingResult(paths, threshold, foreground, skeletonCount, discarded)
     }
 
