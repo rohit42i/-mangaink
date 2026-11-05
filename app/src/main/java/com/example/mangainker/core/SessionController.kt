@@ -43,6 +43,27 @@ class SessionController(context: Context) {
     private var scanJob: Job? = null
     private var importJob: Job? = null
 
+    fun setScreenCaptureState(active: Boolean, reason: String? = null) {
+        mutableState.update {
+            it.copy(
+                captureInProgress = active,
+                isError = if (active) false else (reason != null),
+                scanStatus = when {
+                    active -> "Recording screen. Waiting for ibisPaint to become visible…"
+                    reason != null -> reason
+                    else -> it.scanStatus
+                },
+                message = when {
+                    active -> "Android screen capture is active for this session."
+                    reason != null -> "Screen capture ended."
+                    else -> it.message
+                }
+            )
+        }
+        if (active) Logger.info("Screen capture session started")
+        else if (reason != null) Logger.warning("Screen capture ended: " + reason)
+    }
+
     fun dispatch(command: SessionCommand) {
         when (command) {
             SessionCommand.Start -> startTrace()
@@ -150,6 +171,7 @@ class SessionController(context: Context) {
                 val previous = mutableState.value.sourceBitmap
                 mutableState.update {
                     it.copy(
+                        captureInProgress = false,
                         sourceBitmap = accepted,
                         sourceName = "ibisPaint screen capture",
                         pageWidth = accepted!!.width,
