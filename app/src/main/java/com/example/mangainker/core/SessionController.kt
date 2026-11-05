@@ -197,7 +197,7 @@ class SessionController(context: Context) {
                 val scaleX = captured.width.toFloat() / detectionBitmap!!.width
                 val scaleY = captured.height.toFloat() / detectionBitmap!!.height
                 val pageBounds = smallBounds?.let {
-                    android.graphics.Rect(
+                    PageBounds(
                         floor(it.left * scaleX).toInt().coerceIn(0, captured.width - 1),
                         floor(it.top * scaleY).toInt().coerceIn(0, captured.height - 1),
                         ceil(it.right * scaleX).toInt().coerceIn(1, captured.width),
