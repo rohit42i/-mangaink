@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Minimize
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.CropFree
@@ -66,7 +67,8 @@ fun FloatingPanelContent(
     onSnap: () -> Unit,
     onClose: () -> Unit,
     onOpenMainScreen: () -> Unit,
-    onReconnectAccessibility: () -> Unit
+    onReconnectAccessibility: () -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
@@ -181,6 +183,14 @@ fun FloatingPanelContent(
                                 onClick = {
                                     moreExpanded = false
                                     controller.clearPage()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Settings") },
+                                leadingIcon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
+                                onClick = {
+                                    moreExpanded = false
+                                    onOpenSettings()
                                 }
                             )
                             DropdownMenuItem(
