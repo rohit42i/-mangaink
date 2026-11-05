@@ -301,7 +301,7 @@ fun StudioWorkspaceScreen(
                                         }
                                     }
                                 }
-                                .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements, selectedElementId) {
+                                .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements) {
                                 val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
                                 val drawnWidth = currentPage.width * scale
                                 val drawnHeight = currentPage.height * scale
