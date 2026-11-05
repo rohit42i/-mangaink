@@ -16,14 +16,18 @@ object OutlineProcessor {
         thresholdOffset: Int = 0,
         minComponentPixels: Int = 3,
         smoothing: Float = 0.28f,
-        detailPreservation: Float = 0.78f
+        detailPreservation: Float = 0.78f,
+        cancellationCheck: () -> Unit = {}
     ): ProcessingResult {
         require(width > 2 && height > 2) { "Image is too small to process." }
         require(grayscale.size == width * height) { "Image data does not match its dimensions." }
+        cancellationCheck()
         val threshold = (otsuThreshold(grayscale) + thresholdOffset).coerceIn(8, 248)
+        cancellationCheck()
         val mask = ByteArray(grayscale.size)
         var foreground = 0
         for (i in grayscale.indices) {
+            if ((i and 8191) == 0) cancellationCheck()
             if ((grayscale[i].toInt() and 0xff) <= threshold) {
                 mask[i] = 1
                 foreground++
@@ -31,19 +35,20 @@ object OutlineProcessor {
         }
         if (foreground == 0) throw IllegalArgumentException("No dark outline pixels were found. Try a darker outline or adjust threshold.")
 
-        val discarded = removeSmallComponents(mask, width, height, minComponentPixels.coerceAtLeast(1))
+        val discarded = removeSmallComponents(mask, width, height, minComponentPixels.coerceAtLeast(1), cancellationCheck)
         val remaining = mask.count { it.toInt() != 0 }
         if (remaining == 0) throw IllegalArgumentException("Only tiny specks were detected. Reduce the speck-removal setting.")
 
-        thinZhangSuen(mask, width, height)
+        thinZhangSuen(mask, width, height, cancellationCheck)
         val skeletonCount = mask.count { it.toInt() != 0 }
-        val rawPaths = trace(mask, width, height)
+        val rawPaths = trace(mask, width, height, cancellationCheck)
         val paths = rawPaths.mapNotNull { raw ->
+            cancellationCheck()
             if (raw.size < 2) return@mapNotNull null
             val detail = detailPreservation.coerceIn(0f, 1f)
             val simplifyTolerance = 2.0f - (1.5f * detail)
-            val simplified = simplify(raw, simplifyTolerance)
-            val smoothed = smooth(simplified, smoothing.coerceIn(0f, 1f))
+            val simplified = simplify(raw, simplifyTolerance, cancellationCheck)
+            val smoothed = smooth(simplified, smoothing.coerceIn(0f, 1f), cancellationCheck)
             if (smoothed.size < 2) return@mapNotNull null
             val length = pathLength(smoothed)
             if (length < 4f) return@mapNotNull null
@@ -82,19 +87,27 @@ object OutlineProcessor {
         return bestThreshold
     }
 
-    private fun removeSmallComponents(mask: ByteArray, width: Int, height: Int, minimum: Int): Int {
+    private fun removeSmallComponents(
+        mask: ByteArray,
+        width: Int,
+        height: Int,
+        minimum: Int,
+        cancellationCheck: () -> Unit
+    ): Int {
         if (minimum <= 1) return 0
         val visited = ByteArray(mask.size)
         val stack = IntArray(mask.size)
         val component = IntArray(mask.size)
         var discarded = 0
         for (start in mask.indices) {
+            if ((start and 8191) == 0) cancellationCheck()
             if (mask[start].toInt() == 0 || visited[start].toInt() != 0) continue
             var stackSize = 0
             var componentSize = 0
             stack[stackSize++] = start
             visited[start] = 1
             while (stackSize > 0) {
+                if ((componentSize and 4095) == 0) cancellationCheck()
                 val current = stack[--stackSize]
                 component[componentSize++] = current
                 val x = current % width
@@ -118,7 +131,7 @@ object OutlineProcessor {
         return discarded
     }
 
-    private fun thinZhangSuen(mask: ByteArray, width: Int, height: Int) {
+    private fun thinZhangSuen(mask: ByteArray, width: Int, height: Int, cancellationCheck: () -> Unit) {
         val removals = IntArray(mask.size)
         var changed = true
         var iterations = 0
@@ -127,6 +140,7 @@ object OutlineProcessor {
             for (phase in 0..1) {
                 var count = 0
                 for (y in 1 until height - 1) {
+                    cancellationCheck()
                     for (x in 1 until width - 1) {
                         val index = y * width + x
                         if (mask[index].toInt() == 0) continue
@@ -187,10 +201,16 @@ object OutlineProcessor {
         return count
     }
 
-    private fun trace(mask: ByteArray, width: Int, height: Int): List<List<InkPoint>> {
+    private fun trace(
+        mask: ByteArray,
+        width: Int,
+        height: Int,
+        cancellationCheck: () -> Unit
+    ): List<List<InkPoint>> {
         val size = mask.size
         val degrees = ByteArray(size)
         for (index in mask.indices) {
+            if ((index and 8191) == 0) cancellationCheck()
             if (mask[index].toInt() != 0) degrees[index] = degree(index, mask, width, height).toByte()
         }
         val visitedEdges = ByteArray(size * 8)
@@ -212,6 +232,7 @@ object OutlineProcessor {
             points.add(InkPoint((current % width).toFloat(), (current / width).toFloat()))
             var steps = 0
             while (degrees[current].toInt() == 2 && steps++ < size) {
+                if ((steps and 1023) == 0) cancellationCheck()
                 var nextDirection = -1
                 var next = -1
                 for (d in 0..7) {
@@ -232,6 +253,7 @@ object OutlineProcessor {
         }
 
         for (index in mask.indices) {
+            if ((index and 8191) == 0) cancellationCheck()
             if (mask[index].toInt() == 0 || degrees[index].toInt() == 2 || degrees[index].toInt() == 0) continue
             for (direction in 0..7) {
                 if (neighbor(index, direction, mask, width, height) >= 0 && !isVisited(index, direction)) {
@@ -242,6 +264,7 @@ object OutlineProcessor {
         }
         // Closed loops have no endpoints or junctions, so trace their remaining edges.
         for (index in mask.indices) {
+            if ((index and 8191) == 0) cancellationCheck()
             if (mask[index].toInt() == 0) continue
             for (direction in 0..7) {
                 if (neighbor(index, direction, mask, width, height) >= 0 && !isVisited(index, direction)) {
@@ -253,7 +276,7 @@ object OutlineProcessor {
         return results
     }
 
-    private fun simplify(points: List<InkPoint>, epsilon: Float): List<InkPoint> {
+    private fun simplify(points: List<InkPoint>, epsilon: Float, cancellationCheck: () -> Unit): List<InkPoint> {
         if (points.size <= 2) return points
         val keep = BooleanArray(points.size)
         keep[0] = true
@@ -261,6 +284,7 @@ object OutlineProcessor {
         val stack = mutableListOf(0 to points.lastIndex)
         val epsilonSquared = epsilon * epsilon
         while (stack.isNotEmpty()) {
+            cancellationCheck()
             val (first, last) = stack.removeAt(stack.lastIndex)
             var maximum = epsilonSquared
             var selected = -1
@@ -270,6 +294,7 @@ object OutlineProcessor {
             val vy = b.y - a.y
             val lengthSquared = vx * vx + vy * vy
             for (i in first + 1 until last) {
+                if ((i and 4095) == 0) cancellationCheck()
                 val p = points[i]
                 val distanceSquared = if (lengthSquared == 0f) {
                     val ox = p.x - a.x
@@ -295,11 +320,12 @@ object OutlineProcessor {
         return points.filterIndexed { index, _ -> keep[index] }
     }
 
-    private fun smooth(points: List<InkPoint>, strength: Float): List<InkPoint> {
+    private fun smooth(points: List<InkPoint>, strength: Float, cancellationCheck: () -> Unit): List<InkPoint> {
         if (strength <= 0.02f || points.size < 4) return points
         val output = ArrayList<InkPoint>(points.size * 2)
         output.add(points.first())
         for (i in 0 until points.size - 1) {
+            if ((i and 2047) == 0) cancellationCheck()
             val p0 = points[max(0, i - 1)]
             val p1 = points[i]
             val p2 = points[i + 1]
