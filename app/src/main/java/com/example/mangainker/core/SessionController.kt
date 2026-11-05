@@ -150,6 +150,12 @@ class SessionController(context: Context) {
         val smoothing = snapshot.smoothing
         val detail = snapshot.detailPreservation
         scanJob = scope.launch(Dispatchers.Default) {
+            val scanCoroutineJob = currentCoroutineContext()[Job]
+            val cancellationCheck: () -> Unit = {
+                if (scanCoroutineJob?.isActive == false) {
+                    throw CancellationException("Page scan cancelled.")
+                }
+            }
             mutableState.update {
                 it.copy(
                     scanInProgress = true,
@@ -164,13 +170,14 @@ class SessionController(context: Context) {
                 )
             }
             try {
-                val fullGray = BitmapTools.grayscale(bitmap)
+                val fullGray = BitmapTools.grayscale(bitmap, cancellationCheck)
                 currentCoroutineContext().ensureActive()
                 val grayscale = if (left == 0 && top == 0 && right == bitmap.width && bottom == bitmap.height) {
                     fullGray
                 } else {
                     ByteArray(cropWidth * cropHeight).also { crop ->
                         for (row in 0 until cropHeight) {
+                            cancellationCheck()
                             val sourceOffset = (top + row) * bitmap.width + left
                             val targetOffset = row * cropWidth
                             fullGray.copyInto(crop, targetOffset, sourceOffset, sourceOffset + cropWidth)
@@ -186,7 +193,8 @@ class SessionController(context: Context) {
                     thresholdOffset = thresholdOffset,
                     minComponentPixels = minimum,
                     smoothing = smoothing,
-                    detailPreservation = detail
+                    detailPreservation = detail,
+                    cancellationCheck = cancellationCheck
                 )
                 currentCoroutineContext().ensureActive()
                 if (mutableState.value.sourceBitmap !== bitmap) return@launch
