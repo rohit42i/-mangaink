@@ -2,13 +2,13 @@ name: Manga Inker Android CI
 
 on:
   push:
-    branches: [ main, 'feature/stage-1-gesture-replay', 'feature/full-page-outline-repair', 'feature/mangaink-master-build' ]
+    branches: [ main, 'feature/stage-1-gesture-replay', 'feature/full-page-outline-repair' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: manga-inker-${{ github.ref }}
@@ -17,6 +17,8 @@ concurrency:
 jobs:
   verify-and-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,47 +74,13 @@ jobs:
           grep -q 'android.permission.REQUEST_INSTALL_PACKAGES' "$manifest"
           echo "Verified: network is for the private GitHub updater; no broad-storage or MediaProjection permission."
 
-      - name: Upload signed first-install APK
+      - name: Upload signed APK for install and release
         uses: actions/upload-artifact@v4
         with:
           name: manga-inker-install-once-release-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
-
-      - name: Create update manifest
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          set -euo pipefail
-          apk="app/build/outputs/apk/release/app-release.apk"
-          sha="$(sha256sum "$apk" | cut -d ' ' -f 1)"
-          cat > update.json <<EOF
-          {
-            "packageName": "com.example.mangainker",
-            "versionCode": $VERSION_CODE,
-            "versionName": "$VERSION_NAME",
-            "sha256": "$sha",
-            "commit": "$GITHUB_SHA"
-          }
-          EOF
-          cat update.json
-
-      - name: Publish latest private GitHub update
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh release delete mobile-latest --cleanup-tag --yes || true
-          gh release create mobile-latest \
-            app/build/outputs/apk/release/app-release.apk \
-            update.json \
-            --title "Manga Inker latest" \
-            --notes "Automatic update build ${VERSION_NAME}. Commit: ${GITHUB_SHA}" \
-            --target "$GITHUB_SHA" \
-            --prerelease
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -123,3 +91,50 @@ jobs:
             app/build/reports/lint-results-debug.html
           if-no-files-found: ignore
           retention-days: 14
+
+  publish-private-update:
+    needs: verify-and-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download verified signed APK
+        uses: actions/download-artifact@v4
+        with:
+          name: manga-inker-install-once-release-apk
+          path: release
+
+      - name: Create SHA-256 update manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="release/app-release.apk"
+          test -s "$apk"
+          sha="$(sha256sum "$apk" | cut -d ' ' -f 1)"
+          cat > release/update.json <<EOF
+          {
+            "packageName": "com.example.mangainker",
+            "versionCode": $((1000 + GITHUB_RUN_NUMBER)),
+            "versionName": "1.1.$GITHUB_RUN_NUMBER",
+            "sha256": "$sha",
+            "commit": "$GITHUB_SHA"
+          }
+          EOF
+          cat release/update.json
+
+      - name: Publish latest private GitHub update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release delete mobile-latest --cleanup-tag --yes || true
+          gh release create mobile-latest \
+            release/app-release.apk \
+            release/update.json \
+            --title "Manga Inker latest" \
+            --notes "Automatic update build 1.1.$GITHUB_RUN_NUMBER. Commit: $GITHUB_SHA" \
+            --target "$GITHUB_SHA" \
+            --prerelease
