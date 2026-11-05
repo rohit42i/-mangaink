@@ -3,6 +3,7 @@ package com.example.mangainker.overlay
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -10,6 +11,7 @@ import com.example.mangainker.ui.MainActivity
 import android.content.pm.ServiceInfo
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
@@ -32,6 +34,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.example.mangainker.MangaInkerApp
 import com.example.mangainker.core.InkPoint
 import com.example.mangainker.core.SessionController
+import com.example.mangainker.core.SessionCommand
+import com.example.mangainker.capture.ScreenCaptureService
 import com.example.mangainker.ui.InkPalette
 import com.example.mangainker.ui.MangaInkerTheme
 import kotlinx.coroutines.CoroutineScope
@@ -88,22 +92,33 @@ class FloatingPanelService : Service() {
             )
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
-        val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val turnOffIntent = Intent(this, FloatingPanelService::class.java).apply {
+            action = ACTION_TURN_OFF
+        }
+        val turnOffPendingIntent = PendingIntent.getService(
+            this,
+            NOTIFICATION_ID,
+            turnOffIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val turnOffAction = Notification.Action.Builder(
+            Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel),
+            "Turn off",
+            turnOffPendingIntent
+        ).build()
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, channelId)
-                .setContentTitle("Manga Inker is ready")
-                .setContentText("Floating drawing controls are available.")
-                .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setOngoing(true)
-                .build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("Manga Inker is ready")
-                .setContentText("Floating drawing controls are available.")
-                .setSmallIcon(android.R.drawable.ic_menu_edit)
-                .setOngoing(true)
-                .build()
         }
+        val notification = builder
+            .setContentTitle("Manga Inker is ready")
+            .setContentText("Floating drawing controls are available.")
+            .setSmallIcon(android.R.drawable.ic_menu_edit)
+            .setOngoing(true)
+            .addAction(turnOffAction)
+            .build()
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(11, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
@@ -182,8 +197,18 @@ class FloatingPanelService : Service() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = dp(14)
-            y = dp(110)
+            val savedX = positionPreferences.getInt(KEY_X_DP, 14)
+            val savedY = positionPreferences.getInt(KEY_Y_DP, 110)
+            val position = OverlayPosition.clamp(
+                dp(savedX),
+                dp(savedY),
+                dp(56),
+                dp(56),
+                resources.displayMetrics.widthPixels,
+                resources.displayMetrics.heightPixels
+            )
+            x = position.x
+            y = position.y
         }
         panelView = view
         windowManager.addView(view, panelParams)
@@ -306,21 +331,55 @@ class FloatingPanelService : Service() {
     }
 
     private fun movePanel(deltaX: Int, deltaY: Int) {
-        val maxY = (resources.displayMetrics.heightPixels - (panelView?.height ?: 0)).coerceAtLeast(0)
-        panelParams.x = (panelParams.x + deltaX).coerceAtLeast(0)
-        panelParams.y = (panelParams.y + deltaY).coerceIn(0, maxY)
+        val position = OverlayPosition.clamp(
+            panelParams.x + deltaX,
+            panelParams.y + deltaY,
+            (panelView?.width ?: dp(56)).coerceAtLeast(dp(56)),
+            (panelView?.height ?: dp(56)).coerceAtLeast(dp(56)),
+            resources.displayMetrics.widthPixels,
+            resources.displayMetrics.heightPixels
+        )
+        panelParams.x = position.x
+        panelParams.y = position.y
         panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
+        persistPanelPosition()
     }
 
     private fun snapPanel() {
-        val width = resources.displayMetrics.widthPixels
-        val panelWidth = panelView?.width ?: 0
-        panelParams.x = if (panelParams.x + panelWidth / 2 < width / 2) {
-            0
-        } else {
-            (width - panelWidth).coerceAtLeast(0)
-        }
+        val position = OverlayPosition.snapToNearestEdge(
+            panelParams.x,
+            panelParams.y,
+            (panelView?.width ?: dp(56)).coerceAtLeast(dp(56)),
+            (panelView?.height ?: dp(56)).coerceAtLeast(dp(56)),
+            resources.displayMetrics.widthPixels,
+            resources.displayMetrics.heightPixels
+        )
+        panelParams.x = position.x
+        panelParams.y = position.y
         panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
+        persistPanelPosition()
+    }
+
+    private fun persistPanelPosition() {
+        val density = resources.displayMetrics.density.coerceAtLeast(0.1f)
+        positionPreferences.edit()
+            .putInt(KEY_X_DP, (panelParams.x / density).toInt())
+            .putInt(KEY_Y_DP, (panelParams.y / density).toInt())
+            .apply()
+    }
+
+    private val positionPreferences by lazy {
+        getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+    }
+
+    private fun turnOffOverlay() {
+        if (::controller.isInitialized) {
+            controller.cancelScan()
+            controller.dispatch(SessionCommand.Stop)
+            controller.cancelCalibration()
+            stopService(Intent(this, ScreenCaptureService::class.java))
+        }
+        stopSelf()
     }
 
     private fun removeCalibrationViewsOnly() {
@@ -342,15 +401,25 @@ class FloatingPanelService : Service() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_TURN_OFF) {
+            turnOffOverlay()
+        }
+        return START_NOT_STICKY
+    }
 
     override fun onDestroy() {
         if (::controller.isInitialized) {
+            persistPanelPosition()
             if (controller.state.value.running) {
-                controller.dispatch(com.example.mangainker.core.SessionCommand.Stop)
+                controller.dispatch(SessionCommand.Stop)
             }
             if (controller.state.value.scanInProgress) {
                 controller.cancelScan()
+            }
+            controller.cancelCalibration()
+            if (controller.state.value.captureInProgress) {
+                stopService(Intent(this, ScreenCaptureService::class.java))
             }
         }
         serviceScope.cancel()
@@ -364,4 +433,12 @@ class FloatingPanelService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    companion object {
+        const val ACTION_TURN_OFF = "com.example.mangainker.action.TURN_OFF_OVERLAY"
+        private const val NOTIFICATION_ID = 11
+        private const val PREFERENCES_NAME = "floating_overlay_preferences"
+        private const val KEY_X_DP = "position_x_dp"
+        private const val KEY_Y_DP = "position_y_dp"
+    }
 }
