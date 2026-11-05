@@ -42,6 +42,10 @@ class SessionController(context: Context) {
     private var dispatchAllowed = false
     private var scanJob: Job? = null
     private var importJob: Job? = null
+    private var activeTracePaths: List<List<GesturePoint>>? = null
+    private var activeTraceIsTest = false
+    private var pendingResumePaths: List<List<GesturePoint>>? = null
+    private var pendingResumeOffset = 0
 
     fun setScreenCaptureState(active: Boolean, reason: String? = null) {
         mutableState.update {
@@ -644,8 +648,15 @@ class SessionController(context: Context) {
 
     fun registerDispatcher(value: GestureDispatcher) {
         dispatcher = value
+        val pending = mutableState.value.resumeAvailable
         mutableState.update {
-            it.copy(serviceConnected = true, isError = false, message = "Accessibility service connected.")
+            it.copy(
+                serviceConnected = true,
+                isError = false,
+                message = if (pending) {
+                    "Accessibility reconnected. Bring ibisPaint to the foreground to resume from the last completed path."
+                } else "Accessibility service connected."
+            )
         }
         Logger.info("Accessibility service connected")
     }
@@ -653,12 +664,36 @@ class SessionController(context: Context) {
     fun unregisterDispatcher(value: GestureDispatcher, reason: String) {
         if (dispatcher !== value) return
         dispatcher = null
-        mutableState.update { it.copy(serviceConnected = false, ibisPaintForeground = false) }
+        val snapshot = mutableState.value
         Logger.warning(reason)
-        if (mutableState.value.running) {
-            stopWithError("Accessibility disconnected during tracing. Re-enable the service before continuing.")
+        val paths = activeTracePaths
+        if (snapshot.running && !activeTraceIsTest && paths != null) {
+            pendingResumePaths = paths
+            pendingResumeOffset = snapshot.completedPaths.coerceIn(0, paths.size)
+            stopInternals()
+            activeTracePaths = null
+            mutableState.update {
+                it.copy(
+                    serviceConnected = false,
+                    ibisPaintForeground = false,
+                    running = false,
+                    paused = true,
+                    resumeAvailable = pendingResumeOffset < paths.size,
+                    isError = true,
+                    message = "Accessibility disconnected. Re-enable it to resume from path " +
+                        (pendingResumeOffset + 1) + " after the last completed path."
+                )
+            }
+            Logger.warning("Trace paused for Accessibility recovery at completedPath=" + pendingResumeOffset)
         } else {
-            mutableState.update { it.copy(message = "Accessibility service disconnected. Re-enable it in Android settings.") }
+            if (snapshot.running) stopWithError("Accessibility disconnected during the test stroke. Reconnect and run the test again.")
+            mutableState.update {
+                it.copy(
+                    serviceConnected = false,
+                    ibisPaintForeground = false,
+                    message = "Accessibility service disconnected. Re-enable it in Android settings."
+                )
+            }
         }
     }
 
@@ -667,10 +702,33 @@ class SessionController(context: Context) {
         mutableState.update { it.copy(ibisPaintForeground = isIbis) }
         if (mutableState.value.running && !isIbis) {
             stopWithError("ibisPaint left the foreground. Tracing was stopped for safety.")
+        } else if (isIbis && mutableState.value.serviceConnected && mutableState.value.resumeAvailable) {
+            resumeCompletedTraceAfterReconnect()
         }
     }
 
-    fun dispatchIfCurrent(runId: Long, action: () -> Boolean): DispatchGateResult =
+    private fun resumeCompletedTraceAfterReconnect() {
+        val paths = pendingResumePaths ?: return
+        if (!mutableState.value.serviceConnected || !mutableState.value.ibisPaintForeground) return
+        val offset = pendingResumeOffset.coerceIn(0, paths.size)
+        pendingResumePaths = null
+        pendingResumeOffset = 0
+        if (offset >= paths.size) {
+            mutableState.update {
+                it.copy(resumeAvailable = false, paused = false, isError = false, message = "All paths were already completed.")
+            }
+            return
+        }
+        Logger.info("Resuming trace from completedPath=" + offset)
+        startPlayback(
+            paths = paths.drop(offset),
+            isTest = false,
+            completedOffset = offset,
+            allPaths = paths
+        )
+    }
+
+        fun dispatchIfCurrent(runId: Long, action: () -> Boolean): DispatchGateResult =
         synchronized(dispatchLock) {
             if (!dispatchAllowed || activeRunId != runId) DispatchGateResult.BLOCKED
             else if (action()) DispatchGateResult.ALLOWED
@@ -792,9 +850,13 @@ class SessionController(context: Context) {
     private fun startPlayback(
         paths: List<List<GesturePoint>>,
         isTest: Boolean,
-        durationOverrideMs: Long? = null
+        durationOverrideMs: Long? = null,
+        completedOffset: Int = 0,
+        allPaths: List<List<GesturePoint>> = paths
     ) {
         val activeDispatcher = dispatcher ?: return
+        activeTracePaths = allPaths
+        activeTraceIsTest = isTest
         val runId = runIds.incrementAndGet()
         synchronized(dispatchLock) {
             activeRunId = runId
@@ -808,12 +870,15 @@ class SessionController(context: Context) {
                 startedAtElapsedMs = SystemClock.elapsedRealtime(),
                 showResultDialog = false,
                 isError = false,
-                currentPath = 1,
-                completedPaths = 0,
-                totalPaths = total,
+                currentPath = completedOffset + 1,
+                completedPaths = if (isTest) 0 else completedOffset,
+                totalPaths = allPaths.size,
                 failedPaths = 0,
-                progress = 0f,
-                message = if (isTest) "Drawing the alignment test inside the calibrated page." else "Tracing the scanned page outline."
+                resumeAvailable = false,
+                progress = if (isTest) 0f else completedOffset.toFloat() / allPaths.size.coerceAtLeast(1),
+                message = if (isTest) "Drawing the alignment test inside the calibrated page." else if (completedOffset > 0) {
+                    "Resuming from path " + (completedOffset + 1) + " of " + allPaths.size + "."
+                } else "Tracing the scanned page outline."
             )
         }
         Logger.info("run=" + runId + " started type=" + (if (isTest) "test" else "page") + " paths=" + total)
@@ -833,14 +898,16 @@ class SessionController(context: Context) {
                     GestureResult.Cancelled -> "Cancelled"
                     is GestureResult.Failed -> "Failed: " + result.reason
                 }
-                updateLastGestureResult("Path " + pathNumber + " · segment " + segment.index + ": " + label)
+                updateLastGestureResult("Path " + (pathNumber + completedOffset) + " · segment " + segment.index + ": " + label)
             },
             onPathProgress = { completed, pathTotal ->
+                val totalCompleted = completedOffset + completed
+                val totalCount = allPaths.size.coerceAtLeast(1)
                 mutableState.update {
                     it.copy(
-                        currentPath = (completed + 1).coerceAtMost(pathTotal),
-                        completedPaths = if (isTest) 0 else completed,
-                        progress = if (isTest) 0f else completed.toFloat() / pathTotal.coerceAtLeast(1)
+                        currentPath = (totalCompleted + 1).coerceAtMost(totalCount),
+                        completedPaths = if (isTest) 0 else totalCompleted,
+                        progress = if (isTest) 0f else totalCompleted.toFloat() / totalCount
                     )
                 }
             },
@@ -866,10 +933,14 @@ class SessionController(context: Context) {
 
     private fun stop() {
         stopInternals()
+        activeTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
         mutableState.update {
             it.copy(
                 running = false,
                 paused = false,
+                resumeAvailable = false,
                 showResultDialog = false,
                 startedAtElapsedMs = 0L,
                 isError = false,
@@ -883,10 +954,14 @@ class SessionController(context: Context) {
     private fun stopWithError(reason: String, expectedRunId: Long? = null) {
         if (expectedRunId != null && !isCurrentRun(expectedRunId)) return
         stopInternals()
+        activeTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
         mutableState.update {
             it.copy(
                 running = false,
                 paused = false,
+                resumeAvailable = false,
                 showResultDialog = false,
                 startedAtElapsedMs = 0L,
                 isError = true,
@@ -906,11 +981,15 @@ class SessionController(context: Context) {
 
     private fun completeRun(runId: Long, isTest: Boolean) {
         if (!isCurrentRun(runId)) return
+        activeTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
         synchronized(dispatchLock) { dispatchAllowed = false }
         mutableState.update {
             it.copy(
                 running = false,
                 paused = false,
+                resumeAvailable = false,
                 startedAtElapsedMs = 0L,
                 showResultDialog = isTest,
                 isError = false,
