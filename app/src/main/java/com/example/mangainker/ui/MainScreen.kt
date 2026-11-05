@@ -80,6 +80,7 @@ fun MangaInkerRoot(
     updateManager: GitHubUpdateManager,
     permissionRefreshKey: Int,
     onPickPage: () -> Unit,
+    onCaptureScreen: () -> Unit,
     onOpenOverlaySettings: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onOpenAppInfo: () -> Unit,
@@ -132,6 +133,7 @@ fun MangaInkerRoot(
                 updateState = updateState,
                 onInstallUpdate = updateManager::installUpdate,
                 onPickPage = onPickPage,
+                onCaptureScreen = onCaptureScreen,
                 onOpenOverlay = onOpenOverlaySettings,
                 onOpenAccessibility = onOpenAccessibilitySettings,
                 onRestrictedGuide = { showRestrictedGuide = true },
@@ -210,6 +212,7 @@ private fun HomeScreen(
     updateState: UpdateUiState,
     onInstallUpdate: () -> Unit,
     onPickPage: () -> Unit,
+    onCaptureScreen: () -> Unit,
     onOpenOverlay: () -> Unit,
     onOpenAccessibility: () -> Unit,
     onRestrictedGuide: () -> Unit,
@@ -290,6 +293,15 @@ private fun HomeScreen(
                 OutlinedButton(onClick = onPickPage, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp)) {
                     Text(if (state.sourceBitmap == null) "Choose page image" else "Replace page image")
                 }
+
+                OutlinedButton(onClick = onCaptureScreen, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp)) {
+                    Text("Capture ibisPaint screen")
+                }
+                Text(
+                    "Android asks for screen-capture approval each session. Manga Inker waits until ibisPaint is visible, captures one frame, then processes it on this device.",
+                    color = InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
 
                 if (state.sourceBitmap != null) {
                     PagePreview(state = state, onSelectRegion = controller::setScanRegion)
