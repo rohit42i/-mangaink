@@ -5,7 +5,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +50,7 @@ import kotlin.math.min
 import kotlin.math.max
 
 private enum class StudioTool(val label: String, val help: String) {
-    SELECT("Select / Edit", "Tap an element to select it. Drag to move it or its lower-right handle to resize."),
+    SELECT("Select / Edit", "Drag an element to select and move it. Drag its lower-right handle to resize."),
     PANEL("Panel", "Drag to add a panel frame."),
     TONE("Tone", "Drag an area to add a dotted screentone."),
     GRADIENT("Gradient", "Drag an area for a grayscale gradient."),
@@ -283,25 +282,6 @@ fun StudioWorkspaceScreen(
                         Canvas(
                             Modifier.fillMaxSize()
                                 .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements) {
-                                    if (activeTool == StudioTool.SELECT) {
-                                        detectTapGestures { point ->
-                                            val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
-                                            val drawnWidth = currentPage.width * scale
-                                            val drawnHeight = currentPage.height * scale
-                                            val insetX = (size.width - drawnWidth) / 2f
-                                            val insetY = (size.height - drawnHeight) / 2f
-                                            val x = ((point.x - insetX) / drawnWidth).coerceIn(0f, 1f)
-                                            val y = ((point.y - insetY) / drawnHeight).coerceIn(0f, 1f)
-                                            val hit = currentProject.elements.lastOrNull {
-                                                x >= it.left && x <= it.right && y >= it.top && y <= it.bottom
-                                            }
-                                            selectedElementId = hit?.id
-                                            message = if (hit == null) "No element at that position." else
-                                                "Selected ${hit.type}. Drag to move it or its lower-right handle to resize."
-                                        }
-                                    }
-                                }
-                                .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements) {
                                 val scale = minOf(size.width / currentPage.width, size.height / currentPage.height)
                                 val drawnWidth = currentPage.width * scale
                                 val drawnHeight = currentPage.height * scale
@@ -366,7 +346,7 @@ fun StudioWorkspaceScreen(
                                                     selectedElementId = target.id
                                                     message = if (resizeDraggedElement) "Element resized." else "Element moved."
                                                 } else {
-                                                    message = "No element selected. Tap an element first."
+                                                    message = "No element selected. Drag across an element to select and move it."
                                                 }
                                             } else {
                                                 val left = min(start.x, end.x)
