@@ -146,6 +146,7 @@ fun MangaInkerRoot(
                 onCaptureScreen = onCaptureScreen,
                 onOpenOverlay = onOpenOverlaySettings,
                 onOpenAccessibility = onOpenAccessibilitySettings,
+                onOpenAppInfo = onOpenAppInfo,
                 onRestrictedGuide = { showRestrictedGuide = true },
                 onShowFloatingPanel = onShowFloatingPanel,
                 onOpenIbisPaint = onOpenIbisPaint
@@ -232,6 +233,7 @@ private fun HomeScreen(
     onCaptureScreen: () -> Unit,
     onOpenOverlay: () -> Unit,
     onOpenAccessibility: () -> Unit,
+    onOpenAppInfo: () -> Unit,
     onRestrictedGuide: () -> Unit,
     onShowFloatingPanel: () -> Unit,
     onOpenIbisPaint: () -> Unit
