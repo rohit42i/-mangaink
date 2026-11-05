@@ -56,6 +56,7 @@ class FloatingPanelService : Service() {
     private var calibrationToolbar: LinearLayout? = null
     private var calibrationVisible = false
     private var panelSnapEdge = -1
+    private var activationReported = false
 
     private data class CalibrationHandle(
         val view: TextView,
@@ -64,22 +65,45 @@ class FloatingPanelService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        if (!OverlayActivation.isRequested(this)) {
+            stopSelf()
+            return
+        }
         if (!Settings.canDrawOverlays(this)) {
+            OverlayActivation.awaitingOverlayPermission()
             Toast.makeText(this, "Allow display over other apps first.", Toast.LENGTH_LONG).show()
             stopSelf()
             return
         }
-        controller = (application as MangaInkerApp).sessionController
-        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        startAsForeground()
-        addRunningBorder()
-        addPanel()
 
-        serviceScope.launch {
-            controller.state.collect { state ->
-                if (state.calibrating && !calibrationVisible) showCalibration()
-                if (!state.calibrating && calibrationVisible) removeCalibration()
+        try {
+            controller = (application as MangaInkerApp).sessionController
+            windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+            startAsForeground()
+            addRunningBorder()
+            addPanel()
+
+            serviceScope.launch {
+                controller.state.collect { state ->
+                    when {
+                        state.captureInProgress && calibrationVisible -> removeCalibration()
+                        !state.captureInProgress && state.calibrating && !calibrationVisible -> showCalibration()
+                        !state.calibrating && calibrationVisible -> removeCalibration()
+                    }
+                }
             }
+
+            if (!OverlayActivation.isRequested(this)) {
+                stopSelf()
+                return
+            }
+            OverlayActivation.serviceStarted()
+            activationReported = true
+        } catch (error: Exception) {
+            val reason = error.message ?: error.javaClass.simpleName
+            OverlayActivation.serviceStartFailed("Floating controls failed to start: " + reason)
+            Logger.error("Floating controls failed to start: " + reason)
+            stopSelf()
         }
     }
 
@@ -152,10 +176,14 @@ class FloatingPanelService : Service() {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
-        ).apply { gravity = Gravity.TOP or Gravity.START }
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) alpha = 0.8f
+        }
         borderView = view
         windowManager.addView(view, params)
     }
@@ -217,7 +245,9 @@ class FloatingPanelService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -272,6 +302,7 @@ class FloatingPanelService : Service() {
                 size,
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
             ).apply {
@@ -316,7 +347,9 @@ class FloatingPanelService : Service() {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
@@ -406,6 +439,7 @@ class FloatingPanelService : Service() {
     }
 
     private fun turnOffOverlay() {
+        OverlayActivation.markDisabled(this)
         if (::controller.isInitialized) {
             controller.cancelScan()
             controller.dispatch(SessionCommand.Stop)
@@ -462,6 +496,7 @@ class FloatingPanelService : Service() {
         panelView = null
         borderView = null
         stopForeground(STOP_FOREGROUND_REMOVE)
+        if (activationReported) OverlayActivation.serviceStopped()
         super.onDestroy()
     }
 
