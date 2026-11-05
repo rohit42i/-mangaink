@@ -2,6 +2,7 @@ package com.example.mangainker.core
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import java.util.concurrent.CancellationException
 import org.junit.Test
 
 class OutlineProcessorTest {
@@ -157,4 +158,29 @@ class OutlineProcessorTest {
             it.x in 0f..(width - 1).toFloat() && it.y in 0f..(height - 1).toFloat()
         })
     }
+    @Test
+    fun cancellationStopsOutlineProcessingPromptly() {
+        val width = 256
+        val height = 256
+        val pixels = ByteArray(width * height) { 0xff.toByte() }
+        for (x in 8..247) for (y in 120..135) pixels[y * width + x] = 0
+
+        var checkpoints = 0
+        val failure = runCatching {
+            OutlineProcessor.process(
+                grayscale = pixels,
+                width = width,
+                height = height,
+                minComponentPixels = 1,
+                cancellationCheck = {
+                    checkpoints++
+                    if (checkpoints >= 3) throw CancellationException("cancelled by test")
+                }
+            )
+        }.exceptionOrNull()
+
+        assertTrue("The cancellation signal must escape the processing pipeline", failure is CancellationException)
+        assertTrue("Cancellation checkpoints must execute", checkpoints >= 3)
+    }
+
 }
