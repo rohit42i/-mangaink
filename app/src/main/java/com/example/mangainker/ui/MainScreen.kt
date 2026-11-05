@@ -549,6 +549,11 @@ private fun HomeScreen(
                     color = InkPalette.secondaryText,
                     style = MaterialTheme.typography.bodySmall
                 )
+                Text(
+                    "Set the ibisPaint brush and size before tracing. Android gesture strokes do not set pressure, so ibisPaint's active brush determines line thickness.",
+                    color = InkPalette.warning,
+                    style = MaterialTheme.typography.bodySmall
+                )
                 Button(
                     onClick = {
                         controller.beginCalibration()
