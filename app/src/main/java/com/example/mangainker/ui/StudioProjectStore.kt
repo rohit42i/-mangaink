@@ -251,7 +251,22 @@ class StudioProjectStore(context: Context) {
     }
 
     private fun pagesFor(project: StudioProject): List<StudioPage> {
-        if (project.pages.isNotEmpty()) return project.pages
+        if (project.pages.isNotEmpty()) {
+            // The root fields are a compatibility view of the active page.
+            // Merge them back into the page collection before any mutation so
+            // edits made by older UI call sites are never overwritten by stale
+            // copies in the pages array.
+            return project.pages.map { page ->
+                if (page.id == project.activePageId) {
+                    page.copy(
+                        pageFile = project.pageFile,
+                        pageWidth = project.pageWidth,
+                        pageHeight = project.pageHeight,
+                        elements = project.elements
+                    )
+                } else page
+            }
+        }
         val id = project.activePageId ?: "legacy-page-1"
         return listOf(
             StudioPage(
