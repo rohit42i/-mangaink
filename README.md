@@ -18,6 +18,17 @@ The compact bubble can be dragged and snapped to the screen edge. Expand it for 
 
 The overlay runs as a user-started foreground service with a persistent notification. If ibisPaint leaves the foreground or Accessibility disconnects, the active trace stops rather than retrying blindly.
 
+## Comic Studio
+
+1. Import a page from Home.
+2. Open **Studio** and create a local project from the imported page.
+3. Choose **Panel**, **Tone**, **Bubble** or **SFX**, then drag on the page to place that element.
+4. Dialogue and SFX text can be edited in the text dialog. Project changes are saved in the app's private storage.
+5. Return to the project list to reopen or delete saved projects.
+6. Choose **Export finished page as PNG** and select a save location in Android's file picker.
+
+The studio currently exports the page bitmap used by the inking workspace (the scanner's processing copy is capped at 1,400 px on its longest side). It does not yet replace a full desktop publishing or multi-layer drawing editor. Advanced multi-page sequencing, panel reordering, richer bubble tails/text wrapping, brush/layer editing, speed lines and gradients remain planned.
+
 ## GitHub auto-updates
 
 After the first installation, Manga Inker checks its private GitHub release channel when the app opens. When a newer build is published, it downloads the signed APK, verifies the SHA-256 checksum, and shows **Install update** in Settings. Android then displays its own install confirmation. Android does not permit a normal app to silently replace itself.
