@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,6 +57,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import android.graphics.Bitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -70,7 +72,7 @@ import com.example.mangainker.permissions.PermissionChecks
 import com.example.mangainker.update.GitHubUpdateManager
 import com.example.mangainker.update.UpdateUiState
 
-private enum class AppTab { Home, Settings }
+private enum class AppTab { Home, Studio, Settings }
 
 @Composable
 fun MangaInkerRoot(
@@ -82,12 +84,14 @@ fun MangaInkerRoot(
     onOpenAccessibilitySettings: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onShowFloatingPanel: () -> Unit,
-    onOpenIbisPaint: () -> Unit
+    onOpenIbisPaint: () -> Unit,
+    onExportImage: (Bitmap) -> Unit
 ) {
     val state by controller.state.collectAsState()
     val updateState by updateManager.state.collectAsState()
     val logs by Logger.lines.collectAsState()
     val context = LocalContext.current
+    val studioStore = remember(context) { StudioProjectStore(context) }
     val overlayGranted = remember(permissionRefreshKey) { PermissionChecks.overlayGranted(context) }
     val accessibilityGranted = remember(permissionRefreshKey) { PermissionChecks.accessibilityGranted(context) }
     var selectedTab by remember { mutableStateOf(AppTab.Home) }
@@ -102,6 +106,12 @@ fun MangaInkerRoot(
                     onClick = { selectedTab = AppTab.Home },
                     icon = { Icon(Icons.Outlined.Home, contentDescription = null) },
                     label = { Text("Home") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.Studio,
+                    onClick = { selectedTab = AppTab.Studio },
+                    icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                    label = { Text("Studio") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == AppTab.Settings,
@@ -127,6 +137,12 @@ fun MangaInkerRoot(
                 onRestrictedGuide = { showRestrictedGuide = true },
                 onShowFloatingPanel = onShowFloatingPanel,
                 onOpenIbisPaint = onOpenIbisPaint
+            )
+            AppTab.Studio -> StudioWorkspaceScreen(
+                modifier = Modifier.padding(padding),
+                importedPage = state.sourceBitmap,
+                store = studioStore,
+                onExportImage = onExportImage
             )
             AppTab.Settings -> SettingsScreen(
                 modifier = Modifier.padding(padding),
