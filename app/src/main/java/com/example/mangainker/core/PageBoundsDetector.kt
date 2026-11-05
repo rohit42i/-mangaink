@@ -27,7 +27,7 @@ internal object PageBoundsDetector {
     ): PageBounds? {
         if (width < 40 || height < 40 || grayscale.size != width * height) return null
 
-        val significantRegions = ArrayList<LightRegion>()
+        var significantRegionCount = 0
         val visited = ByteArray(grayscale.size)
         val queue = IntArray(grayscale.size)
         var bestCount = 0
@@ -92,7 +92,7 @@ internal object PageBoundsDetector {
                 aspect in MIN_ASPECT..MAX_ASPECT &&
                 fillRatio >= MIN_FILL_RATIO
             ) {
-                significantRegions.add(LightRegion(left, top, right, bottom, tail))
+                significantRegionCount++
             }
 
             if (!touchesAllEdges &&
@@ -114,7 +114,7 @@ internal object PageBoundsDetector {
         // Never auto-crop to just the largest panel when other substantial
         // page-like regions are disconnected. The import flow keeps the full
         // screenshot and asks the user to select the complete artwork area.
-        if (significantRegions.size > 1) return null
+        if (significantRegionCount > 1) return null
         if (bestCount == 0) return null
         val padX = max(2, ((bestRight - bestLeft + 1) * EDGE_PADDING).toInt())
         val padY = max(2, ((bestBottom - bestTop + 1) * EDGE_PADDING).toInt())
@@ -125,14 +125,6 @@ internal object PageBoundsDetector {
             (bestBottom + padY + 1).coerceAtMost(height)
         )
     }
-
-    private data class LightRegion(
-        val left: Int,
-        val top: Int,
-        val right: Int,
-        val bottom: Int,
-        val pixelCount: Int
-    )
 
     private const val LIGHT_THRESHOLD = 222
     private const val MIN_REGION_WIDTH_FRACTION = 0.20f
