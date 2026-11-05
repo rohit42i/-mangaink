@@ -42,8 +42,15 @@ data class UpdateUiState(
     val tokenConfigured: Boolean = false,
     val updateAvailable: Boolean = false,
     val downloadedApk: File? = null,
+    val currentVersionName: String = "",
     val latestVersionName: String = "",
-    val latestVersionCode: Long = 0L
+    val latestVersionCode: Long = 0L,
+    val releaseNotes: String = "",
+    val downloadProgress: Float = 0f,
+    val downloadedBytes: Long = 0L,
+    val totalBytes: Long = 0L,
+    val lastCheckedAtMs: Long? = null,
+    val checkOnLaunch: Boolean = true
 )
 
 class GitHubUpdateManager(context: Context) {
@@ -51,19 +58,35 @@ class GitHubUpdateManager(context: Context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val tokenStore = GitHubTokenStore(appContext)
     private var automaticCheckJob: Job? = null
+    private val preferences = appContext.getSharedPreferences("manga_inker_update", Context.MODE_PRIVATE)
     private val mutableState = MutableStateFlow(
-        UpdateUiState(tokenConfigured = tokenStore.load() != null)
+        UpdateUiState(
+            tokenConfigured = tokenStore.load() != null,
+            currentVersionName = currentVersionName(),
+            checkOnLaunch = preferences.getBoolean(KEY_CHECK_ON_LAUNCH, true)
+        )
     )
     val state: StateFlow<UpdateUiState> = mutableState.asStateFlow()
 
     fun startAutomaticChecks() {
-        if (automaticCheckJob?.isActive == true) return
+        if (!mutableState.value.checkOnLaunch || automaticCheckJob?.isActive == true) return
         automaticCheckJob = scope.launch {
             checkForUpdate()
             while (isActive) {
                 delay(AUTO_CHECK_INTERVAL_MS)
                 checkForUpdate()
             }
+        }
+    }
+
+    fun setCheckOnLaunch(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_CHECK_ON_LAUNCH, enabled).apply()
+        mutableState.value = mutableState.value.copy(checkOnLaunch = enabled)
+        if (enabled) {
+            startAutomaticChecks()
+        } else {
+            automaticCheckJob?.cancel()
+            automaticCheckJob = null
         }
     }
 
@@ -91,7 +114,11 @@ class GitHubUpdateManager(context: Context) {
 
     fun clearToken() {
         tokenStore.clear()
-        mutableState.value = UpdateUiState(message = "GitHub update access removed from this device.")
+        mutableState.value = UpdateUiState(
+            currentVersionName = currentVersionName(),
+            checkOnLaunch = preferences.getBoolean(KEY_CHECK_ON_LAUNCH, true),
+            message = "GitHub update access removed from this device."
+        )
         Logger.info("GitHub update credential removed")
     }
 
@@ -100,6 +127,8 @@ class GitHubUpdateManager(context: Context) {
         if (token.isNullOrBlank()) {
             mutableState.value = mutableState.value.copy(
                 tokenConfigured = false,
+                currentVersionName = currentVersionName(),
+                lastCheckedAtMs = System.currentTimeMillis(),
                 message = "Add a fine-grained GitHub token once to check updates for this private repository."
             )
             return
@@ -118,6 +147,7 @@ class GitHubUpdateManager(context: Context) {
                     token,
                     accept = "application/vnd.github+json"
                 )
+                val releaseNotes = release.optString("body", "")
                 val assets = release.getJSONArray("assets")
                 val manifestAsset = (0 until assets.length())
                     .map { assets.getJSONObject(it) }
@@ -143,6 +173,10 @@ class GitHubUpdateManager(context: Context) {
                 if (latestCode <= currentCode) {
                     mutableState.value = UpdateUiState(
                         tokenConfigured = true,
+                        currentVersionName = currentVersionName(),
+                        lastCheckedAtMs = System.currentTimeMillis(),
+                        checkOnLaunch = preferences.getBoolean(KEY_CHECK_ON_LAUNCH, true),
+                        releaseNotes = releaseNotes,
                         message = "You're up to date · " + currentVersionName()
                     )
                     return@launch
@@ -150,14 +184,21 @@ class GitHubUpdateManager(context: Context) {
 
                 mutableState.value = mutableState.value.copy(
                     downloading = true,
+                    checking = false,
+                    currentVersionName = currentVersionName(),
                     latestVersionCode = latestCode,
                     latestVersionName = latestName,
+                    releaseNotes = releaseNotes,
+                    downloadProgress = 0f,
+                    downloadedBytes = 0L,
+                    totalBytes = apkAsset.optLong("size", 0L),
                     message = "New version " + latestName + " found. Downloading it from GitHub…"
                 )
 
                 val apk = File(appContext.cacheDir, "manga-inker-update-$latestCode.apk")
                 val assetUrl = apkAsset.getString("url")
-                downloadAsset(assetUrl, token, apk)
+                val expectedSize = apkAsset.optLong("size", 0L)
+                downloadAsset(assetUrl, token, apk, expectedSize)
                 val expected = manifest.getString("sha256").lowercase()
                 val actual = sha256(apk).lowercase()
                 require(actual == expected) {
@@ -169,8 +210,15 @@ class GitHubUpdateManager(context: Context) {
                     tokenConfigured = true,
                     updateAvailable = true,
                     downloadedApk = apk,
+                    currentVersionName = currentVersionName(),
                     latestVersionName = latestName,
                     latestVersionCode = latestCode,
+                    releaseNotes = releaseNotes,
+                    downloadProgress = 1f,
+                    downloadedBytes = apk.length(),
+                    totalBytes = apk.length(),
+                    lastCheckedAtMs = System.currentTimeMillis(),
+                    checkOnLaunch = preferences.getBoolean(KEY_CHECK_ON_LAUNCH, true),
                     message = "Version " + latestName + " is downloaded and verified. Tap Install update."
                 )
                 Logger.info("Update downloaded and SHA-256 verified version=" + latestName)
@@ -178,6 +226,7 @@ class GitHubUpdateManager(context: Context) {
                 mutableState.value = mutableState.value.copy(
                     checking = false,
                     downloading = false,
+                    lastCheckedAtMs = System.currentTimeMillis(),
                     message = "Update check failed: " + (error.message ?: error.javaClass.simpleName)
                 )
                 Logger.error("GitHub update failed: " + (error.message ?: error.javaClass.simpleName))
@@ -291,7 +340,7 @@ class GitHubUpdateManager(context: Context) {
         }
     }
 
-    private fun downloadAsset(url: String, token: String, target: File) {
+    private fun downloadAsset(url: String, token: String, target: File, expectedSize: Long) {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 20_000
@@ -308,12 +357,31 @@ class GitHubUpdateManager(context: Context) {
                 val detail = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
                 throw IllegalStateException("GitHub APK download failed with HTTP " + code + ". " + detail.take(180))
             }
+            val total = connection.contentLengthLong.takeIf { it > 0L } ?: expectedSize
+            var downloaded = 0L
             connection.inputStream.use { input ->
-                target.outputStream().use { output -> input.copyTo(output) }
+                target.outputStream().use { output ->
+                    val buffer = ByteArray(32 * 1024)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                        downloaded += count
+                        mutableState.value = mutableState.value.copy(
+                            downloadedBytes = downloaded,
+                            totalBytes = total,
+                            downloadProgress = if (total > 0L) (downloaded.toFloat() / total).coerceIn(0f, 1f) else 0f
+                        )
+                    }
+                }
             }
             require(target.length() > 1_000_000L) {
                 target.delete()
                 "Downloaded update is too small to be a valid Manga Inker APK."
+            }
+            require(expectedSize <= 0L || target.length() == expectedSize) {
+                target.delete()
+                "Downloaded APK size does not match the GitHub release asset metadata."
             }
         } finally {
             connection.disconnect()
@@ -336,6 +404,7 @@ class GitHubUpdateManager(context: Context) {
     }
 
     companion object {
+        private const val KEY_CHECK_ON_LAUNCH = "check_on_launch"
         private const val AUTO_CHECK_INTERVAL_MS = 6L * 60L * 60L * 1_000L
         private const val RELEASE_API =
             "https://api.github.com/repos/rohit42i/-mangaink/releases/tags/mobile-latest"
