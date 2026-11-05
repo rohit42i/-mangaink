@@ -41,7 +41,7 @@ object BitmapTools {
         val output = ByteArray(pixels.size)
 
         for (i in pixels.indices) {
-            if (i and 8191 == 0) cancellationCheck()
+            if ((i and 8191) == 0) cancellationCheck()
             val pixel = pixels[i]
             val alpha = (pixel ushr 24) and 0xff
             val red = (pixel shr 16) and 0xff
