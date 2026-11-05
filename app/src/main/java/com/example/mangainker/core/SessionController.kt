@@ -952,8 +952,8 @@ class SessionController(context: Context) {
             dispatchAllowed = true
         }
         val total = paths.size
-        mutableState.update {
-            it.copy(
+        mutableState.update { current ->
+            current.copy(
                 running = true,
                 paused = false,
                 startedAtElapsedMs = SystemClock.elapsedRealtime(),
@@ -963,14 +963,10 @@ class SessionController(context: Context) {
                 completedPaths = if (isTest) 0 else completedOffset,
                 totalPaths = allPaths.size,
                 failedPaths = 0,
-                pathLog = if (isTest) state.value.pathLog else {
-                    val existing = state.value.pathLog.associateBy { it.pathNumber }
-                    allPaths.indices.map { index ->
-                        val number = index + 1
-                        if (number <= completedOffset) PathLogEntry(number, "done", "Completed before recovery")
-                        else if (completedOffset > 0 && existing[number]?.status == "pending") PathLogEntry(number, "pending")
-                        else PathLogEntry(number, "pending")
-                    }
+                pathLog = if (isTest) current.pathLog else allPaths.indices.map { index ->
+                    val number = index + 1
+                    if (number <= completedOffset) PathLogEntry(number, "done", "Completed before recovery")
+                    else PathLogEntry(number, "pending")
                 },
                 resumeAvailable = false,
                 progress = if (isTest) 0f else completedOffset.toFloat() / allPaths.size.coerceAtLeast(1),
