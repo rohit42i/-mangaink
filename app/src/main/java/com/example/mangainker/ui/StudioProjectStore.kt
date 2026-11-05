@@ -430,9 +430,11 @@ class StudioProjectStore(context: Context) {
             strokeWidth = max(2f, min(rect.width(), rect.height()) * 0.018f)
         }
         val radius = min(rect.width(), rect.height()) * 0.22f
+        val tailTipY = (rect.bottom + min(rect.height() * 0.16f, 24f))
+            .coerceAtMost((canvas.height - 2).coerceAtLeast(rect.bottom).toFloat())
         val tail = Path().apply {
             moveTo(rect.centerX() - radius * 0.42f, rect.bottom - stroke.strokeWidth)
-            lineTo(rect.centerX(), rect.bottom + min(rect.height() * 0.16f, 24f))
+            lineTo(rect.centerX(), tailTipY)
             lineTo(rect.centerX() + radius * 0.42f, rect.bottom - stroke.strokeWidth)
             close()
         }
@@ -442,14 +444,63 @@ class StudioProjectStore(context: Context) {
         canvas.drawRoundRect(rect, radius, radius, stroke)
 
         val label = text.ifBlank { "Dialogue" }
+        val innerWidth = (rect.width() * 0.82f).coerceAtLeast(4f)
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
-            textSize = min(rect.height() * 0.25f, rect.width() / max(4f, label.length * 0.58f))
+            textSize = min(rect.height() * 0.22f, rect.width() * 0.12f).coerceAtLeast(7f)
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
-        val baseline = rect.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f
-        canvas.drawText(label, rect.centerX(), baseline, textPaint)
+
+        fun wrapAtCurrentSize(): List<String> {
+            val output = ArrayList<String>()
+            label.split('\n').forEach { paragraph ->
+                var remaining = paragraph.trim()
+                if (remaining.isEmpty()) {
+                    output.add("")
+                } else {
+                    while (remaining.isNotEmpty()) {
+                        val fit = textPaint.breakText(remaining, true, innerWidth, null)
+                            .coerceIn(1, remaining.length)
+                        var end = fit
+                        if (fit < remaining.length) {
+                            val space = remaining.lastIndexOf(' ', fit - 1)
+                            if (space > 0) end = space
+                        }
+                        output.add(remaining.substring(0, end).trim())
+                        remaining = remaining.substring(end).trimStart()
+                    }
+                }
+            }
+            return output.ifEmpty { listOf("Dialogue") }
+        }
+
+        var lines = wrapAtCurrentSize()
+        val maxTextHeight = rect.height() * 0.70f
+        while (lines.size > 1 &&
+            (textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent) * lines.size > maxTextHeight &&
+            textPaint.textSize > 7f
+        ) {
+            textPaint.textSize = (textPaint.textSize - 1f).coerceAtLeast(7f)
+            lines = wrapAtCurrentSize()
+        }
+
+        val lineHeight = (textPaint.fontMetrics.descent - textPaint.fontMetrics.ascent).coerceAtLeast(1f)
+        val maxLines = (maxTextHeight / lineHeight).toInt().coerceAtLeast(1)
+        if (lines.size > maxLines) {
+            lines = lines.take(maxLines).toMutableList().also { visible ->
+                var last = visible.last()
+                while (last.isNotEmpty() && textPaint.measureText("$last…") > innerWidth) {
+                    last = last.dropLast(1)
+                }
+                visible[visible.lastIndex] = last + "…"
+            }
+        }
+        val blockHeight = lineHeight * lines.size
+        val firstBaseline = rect.centerY() - blockHeight / 2f - textPaint.fontMetrics.ascent
+        lines.forEachIndexed { index, line ->
+            canvas.drawText(line, rect.centerX(), firstBaseline + lineHeight * index, textPaint)
+        }
     }
 
     private fun drawSfx(canvas: Canvas, rect: RectF, text: String) {
