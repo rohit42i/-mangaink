@@ -168,7 +168,7 @@ class FloatingPanelService : Service() {
                         controller = controller,
                         onDrag = ::movePanel,
                         onSnap = ::snapPanel,
-                        onClose = { stopSelf() },
+                        onClose = { turnOffOverlay() },
                         onOpenMainScreen = {
                             startActivity(
                                 Intent(this@FloatingPanelService, MainActivity::class.java)
