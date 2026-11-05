@@ -235,6 +235,38 @@ class SessionController(context: Context) {
     }
 
 
+    /**
+     * Stops the current import or scan operation without clearing the imported page.
+     * The scan coroutine checks cancellation before publishing its result, so a
+     * cancelled scan cannot replace the page preview with stale paths.
+     */
+    fun cancelScan() {
+        val snapshot = mutableState.value
+        if (!snapshot.scanInProgress) return
+
+        scanJob?.cancel()
+        scanJob = null
+        importJob?.cancel()
+        importJob = null
+
+        mutableState.update {
+            it.copy(
+                scanInProgress = false,
+                scanProgress = 0f,
+                scanStatus = "Operation cancelled.",
+                selectionMode = false,
+                isError = false,
+                message = if (it.sourceBitmap == null) {
+                    "Import cancelled. Choose a page when you're ready."
+                } else {
+                    "Scanning stopped. Your imported page is still available."
+                }
+            )
+        }
+        Logger.info("Current import or scan cancelled by user")
+    }
+
+
     fun enableSelectionMode() {
         val snapshot = mutableState.value
         if (snapshot.sourceBitmap == null || snapshot.running || snapshot.scanInProgress) return
