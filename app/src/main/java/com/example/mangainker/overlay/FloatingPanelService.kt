@@ -335,8 +335,13 @@ class FloatingPanelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
 
     override fun onDestroy() {
-        if (::controller.isInitialized && controller.state.value.running) {
-            controller.dispatch(com.example.mangainker.core.SessionCommand.Stop)
+        if (::controller.isInitialized) {
+            if (controller.state.value.running) {
+                controller.dispatch(com.example.mangainker.core.SessionCommand.Stop)
+            }
+            if (controller.state.value.scanInProgress) {
+                controller.cancelScan()
+            }
         }
         serviceScope.cancel()
         removeCalibration()
