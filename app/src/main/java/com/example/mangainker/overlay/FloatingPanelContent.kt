@@ -1,5 +1,7 @@
 package com.example.mangainker.overlay
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -23,6 +25,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Minimize
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.CropFree
@@ -81,12 +84,14 @@ fun FloatingPanelContent(
         }
     }
 
+    if (!state.captureInProgress) {
     Surface(
         color = InkPalette.surface,
         contentColor = InkPalette.primaryText,
         shape = if (expanded) RoundedCornerShape(22.dp) else CircleShape,
         border = BorderStroke(1.dp, InkPalette.outline),
         modifier = Modifier.widthIn(min = if (expanded) 276.dp else 56.dp, max = 292.dp)
+            .animateContentSize(animationSpec = spring(dampingRatio = 0.82f, stiffness = 500f))
     ) {
         Column(Modifier.padding(horizontal = if (expanded) 9.dp else 0.dp, vertical = if (expanded) 7.dp else 0.dp)) {
             Row(
@@ -109,11 +114,27 @@ fun FloatingPanelContent(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        Modifier.size(if (expanded) 12.dp else 13.dp)
-                            .clip(CircleShape)
-                            .background(stateDot(state))
-                    )
+                    if (expanded) {
+                        Box(
+                            Modifier.size(12.dp)
+                                .clip(CircleShape)
+                                .background(stateDot(state))
+                        )
+                    } else {
+                        Icon(
+                            Icons.Outlined.Edit,
+                            contentDescription = "Open Manga Inker scan controls",
+                            tint = InkPalette.accent,
+                            modifier = Modifier.size(23.dp)
+                        )
+                        Box(
+                            Modifier.align(Alignment.TopEnd)
+                                .padding(10.dp)
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(stateDot(state))
+                        )
+                    }
                 }
 
                 if (expanded) {
@@ -170,7 +191,7 @@ fun FloatingPanelContent(
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("Scan full page") },
+                                text = { Text("Scan outline") },
                                 enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running,
                                 onClick = {
                                     moreExpanded = false
@@ -346,6 +367,7 @@ fun FloatingPanelContent(
         }
     }
 
+    }
 }
 
 private fun stateDot(state: SessionState): Color = when {
