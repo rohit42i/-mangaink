@@ -19,6 +19,8 @@ import com.example.mangainker.capture.ScreenCaptureService
 import com.example.mangainker.permissions.PermissionChecks
 import com.example.mangainker.overlay.FloatingPanelService
 import com.example.mangainker.update.GitHubUpdateManager
+import com.example.mangainker.ui.StudioProject
+import com.example.mangainker.ui.StudioProjectStore
 
 class MainActivity : ComponentActivity() {
     private val controller by lazy { (application as MangaInkerApp).sessionController }
@@ -27,6 +29,7 @@ class MainActivity : ComponentActivity() {
     private var navigationRequest by mutableIntStateOf(0)
     private var navigateToSettings by androidx.compose.runtime.mutableStateOf(false)
     private var pendingExportBitmap: Bitmap? = null
+    private var pendingCbzExport: Pair<StudioProjectStore, StudioProject>? = null
 
     private val createPngDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
         val bitmap = pendingExportBitmap
@@ -46,6 +49,22 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "PNG export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
         } finally {
             if (!bitmap.isRecycled) bitmap.recycle()
+        }
+    }
+
+    private val createCbzDocument = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/vnd.comicbook+zip")
+    ) { uri ->
+        val pending = pendingCbzExport
+        pendingCbzExport = null
+        if (uri == null || pending == null) return@registerForActivityResult
+        try {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                pending.first.writeProjectCbz(pending.second, output)
+            } ?: error("Android could not open the selected CBZ destination.")
+            Toast.makeText(this, "Comic project exported as CBZ.", Toast.LENGTH_LONG).show()
+        } catch (error: Exception) {
+            Toast.makeText(this, "CBZ export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
         }
     }
 
@@ -97,7 +116,8 @@ class MainActivity : ComponentActivity() {
                     },
                     onShowFloatingPanel = { showFloatingPanel() },
                     onOpenIbisPaint = { openIbisPaint() },
-                    onExportImage = { bitmap -> exportPng(bitmap) }
+                    onExportImage = { bitmap -> exportPng(bitmap) },
+                    onExportCbz = { store, project -> exportCbz(store, project) }
                 )
             }
         }
@@ -132,6 +152,16 @@ class MainActivity : ComponentActivity() {
         pendingExportBitmap?.takeIf { !it.isRecycled }?.recycle()
         pendingExportBitmap = bitmap
         createPngDocument.launch("MangaInk-Page.png")
+    }
+
+    private fun exportCbz(store: StudioProjectStore, project: StudioProject) {
+        pendingCbzExport = store to project
+        val safeName = project.title.trim()
+            .replace(Regex("[^A-Za-z0-9 _-]"), "")
+            .replace(Regex("\\s+"), "-")
+            .take(48)
+            .ifBlank { "Manga-Project" }
+        createCbzDocument.launch("$safeName.cbz")
     }
 
     private fun showFloatingPanel() {
