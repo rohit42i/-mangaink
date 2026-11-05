@@ -130,29 +130,6 @@ class FloatingPanelService : Service() {
     private fun addRunningBorder() {
         val view = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-            addOnLayoutChangeListener { changedView, _, _, _, _, _, _, _, _ ->
-                if (!this@FloatingPanelService::panelParams.isInitialized) return@addOnLayoutChangeListener
-                val panelWidth = changedView.width.coerceAtLeast(dp(56))
-                val panelHeight = changedView.height.coerceAtLeast(dp(56))
-                val desiredX = when (panelSnapEdge) {
-                    EDGE_LEFT -> 0
-                    EDGE_RIGHT -> (resources.displayMetrics.widthPixels - panelWidth).coerceAtLeast(0)
-                    else -> panelParams.x
-                }
-                val position = OverlayPosition.clamp(
-                    desiredX,
-                    panelParams.y,
-                    panelWidth,
-                    panelHeight,
-                    resources.displayMetrics.widthPixels,
-                    resources.displayMetrics.heightPixels
-                )
-                if (position.x != panelParams.x || position.y != panelParams.y) {
-                    panelParams.x = position.x
-                    panelParams.y = position.y
-                    runCatching { windowManager.updateViewLayout(changedView, panelParams) }
-                }
-            }
             setContent {
                 MangaInkerTheme {
                     val state by controller.state.collectAsState()
@@ -186,6 +163,29 @@ class FloatingPanelService : Service() {
     private fun addPanel() {
         val view = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            addOnLayoutChangeListener { changedView, _, _, _, _, _, _, _, _ ->
+                if (!this@FloatingPanelService::panelParams.isInitialized) return@addOnLayoutChangeListener
+                val panelWidth = changedView.width.coerceAtLeast(dp(56))
+                val panelHeight = changedView.height.coerceAtLeast(dp(56))
+                val desiredX = when (panelSnapEdge) {
+                    EDGE_LEFT -> 0
+                    EDGE_RIGHT -> (resources.displayMetrics.widthPixels - panelWidth).coerceAtLeast(0)
+                    else -> panelParams.x
+                }
+                val position = OverlayPosition.clamp(
+                    desiredX,
+                    panelParams.y,
+                    panelWidth,
+                    panelHeight,
+                    resources.displayMetrics.widthPixels,
+                    resources.displayMetrics.heightPixels
+                )
+                if (position.x != panelParams.x || position.y != panelParams.y) {
+                    panelParams.x = position.x
+                    panelParams.y = position.y
+                    runCatching { windowManager.updateViewLayout(changedView, panelParams) }
+                }
+            }
             setContent {
                 MangaInkerTheme {
                     FloatingPanelContent(
