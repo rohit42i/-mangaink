@@ -61,13 +61,14 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Screen capture was not approved. Nothing was recorded.", Toast.LENGTH_LONG).show()
             return@registerForActivityResult
         }
-        stopService(Intent(this, FloatingPanelService::class.java))
         val captureIntent = Intent(this, ScreenCaptureService::class.java).apply {
             putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
             putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, grantData)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(captureIntent)
         else startService(captureIntent)
+        // Keep the floating scan handle available above ibisPaint for the whole session.
+        showFloatingPanel()
         openIbisPaint()
         Toast.makeText(this, "Recording screen. Manga Inker will capture when ibisPaint is visible.", Toast.LENGTH_LONG).show()
     }
@@ -107,6 +108,11 @@ class MainActivity : ComponentActivity() {
         val session = controller.state.value
         if (session.running || session.scanInProgress || session.captureInProgress) {
             Toast.makeText(this, "Stop the current scan or trace before starting a screen capture.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            Toast.makeText(this, "Allow Manga Inker to display over other apps so its floating scan control can stay above ibisPaint.", Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + packageName)))
             return
         }
         if (!PermissionChecks.accessibilityGranted(this) || !controller.state.value.serviceConnected) {
