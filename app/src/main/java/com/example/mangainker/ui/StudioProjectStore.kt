@@ -24,7 +24,11 @@ data class StudioElement(
     val top: Float,
     val right: Float,
     val bottom: Float,
-    val text: String = ""
+    val text: String = "",
+    val rotationDegrees: Float = 0f,
+    val textScale: Float = 1f,
+    val tailOffsetX: Float = 0f,
+    val effectDensity: Float = 1f
 )
 
 data class StudioPage(
@@ -309,6 +313,10 @@ class StudioProjectStore(context: Context) {
                     put("right", element.right.toDouble())
                     put("bottom", element.bottom.toDouble())
                     put("text", element.text)
+                    put("rotationDegrees", element.rotationDegrees.toDouble())
+                    put("textScale", element.textScale.toDouble())
+                    put("tailOffsetX", element.tailOffsetX.toDouble())
+                    put("effectDensity", element.effectDensity.toDouble())
                 })
             }
         }
@@ -323,7 +331,11 @@ class StudioProjectStore(context: Context) {
                 top = item.optDouble("top").toFloat(),
                 right = item.optDouble("right").toFloat(),
                 bottom = item.optDouble("bottom").toFloat(),
-                text = item.optString("text")
+                text = item.optString("text"),
+                rotationDegrees = item.optDouble("rotationDegrees", 0.0).toFloat(),
+                textScale = item.optDouble("textScale", 1.0).toFloat().coerceIn(0.5f, 2f),
+                tailOffsetX = item.optDouble("tailOffsetX", 0.0).toFloat().coerceIn(-0.45f, 0.45f),
+                effectDensity = item.optDouble("effectDensity", 1.0).toFloat().coerceIn(0.35f, 2.5f)
             )
         }
 
@@ -343,14 +355,19 @@ class StudioProjectStore(context: Context) {
             val bottom = element.bottom.coerceIn(0f, 1f) * height
             if (right - left < 2f || bottom - top < 2f) return@forEach
             val rect = RectF(left, top, right, bottom)
+            val layerSave = canvas.save()
+            if (element.rotationDegrees != 0f) {
+                canvas.rotate(element.rotationDegrees, rect.centerX(), rect.centerY())
+            }
             when (element.type) {
                 "panel" -> drawPanel(canvas, rect)
-                "tone" -> drawTone(canvas, rect)
+                "tone" -> drawTone(canvas, rect, element.effectDensity)
                 "gradient" -> drawGradient(canvas, rect)
-                "speed" -> drawSpeedLines(canvas, rect)
-                "bubble" -> drawBubble(canvas, rect, element.text)
-                "sfx" -> drawSfx(canvas, rect, element.text)
+                "speed" -> drawSpeedLines(canvas, rect, element.effectDensity)
+                "bubble" -> drawBubble(canvas, rect, element.text, element.textScale, element.tailOffsetX)
+                "sfx" -> drawSfx(canvas, rect, element.text, element.textScale)
             }
+            canvas.restoreToCount(layerSave)
         }
         return output
     }
@@ -364,8 +381,8 @@ class StudioProjectStore(context: Context) {
         canvas.drawRect(rect, paint)
     }
 
-    private fun drawTone(canvas: Canvas, rect: RectF) {
-        val spacing = max(7f, min(rect.width(), rect.height()) / 22f)
+    private fun drawTone(canvas: Canvas, rect: RectF, density: Float) {
+        val spacing = max(3f, min(rect.width(), rect.height()) / (22f * density.coerceIn(0.35f, 2.5f)))
         val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
             style = Paint.Style.FILL
@@ -402,7 +419,7 @@ class StudioProjectStore(context: Context) {
         canvas.drawRect(rect, paint)
     }
 
-    private fun drawSpeedLines(canvas: Canvas, rect: RectF) {
+    private fun drawSpeedLines(canvas: Canvas, rect: RectF, density: Float) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
             style = Paint.Style.STROKE
@@ -410,7 +427,7 @@ class StudioProjectStore(context: Context) {
         }
         val save = canvas.save()
         canvas.clipRect(rect)
-        val spacing = max(7f, rect.height() / 18f)
+        val spacing = max(3f, rect.height() / (18f * density.coerceIn(0.35f, 2.5f)))
         var y = rect.top - rect.width() * 0.35f
         while (y < rect.bottom) {
             canvas.drawLine(rect.left, y, rect.right, y + rect.width() * 0.35f, paint)
@@ -419,7 +436,7 @@ class StudioProjectStore(context: Context) {
         canvas.restoreToCount(save)
     }
 
-    private fun drawBubble(canvas: Canvas, rect: RectF, text: String) {
+    private fun drawBubble(canvas: Canvas, rect: RectF, text: String, textScale: Float, tailOffsetX: Float) {
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.WHITE
             style = Paint.Style.FILL
@@ -435,7 +452,7 @@ class StudioProjectStore(context: Context) {
             .coerceAtMost(canvasBottom)
         val tail = Path().apply {
             moveTo(rect.centerX() - radius * 0.42f, rect.bottom - stroke.strokeWidth)
-            lineTo(rect.centerX(), tailTipY)
+            lineTo((rect.centerX() + rect.width() * tailOffsetX.coerceIn(-0.45f, 0.45f)).coerceIn(0f, canvas.width.toFloat()), tailTipY)
             lineTo(rect.centerX() + radius * 0.42f, rect.bottom - stroke.strokeWidth)
             close()
         }
@@ -448,7 +465,7 @@ class StudioProjectStore(context: Context) {
         val innerWidth = (rect.width() * 0.82f).coerceAtLeast(4f)
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
-            textSize = min(rect.height() * 0.22f, rect.width() * 0.12f).coerceAtLeast(7f)
+            textSize = (min(rect.height() * 0.22f, rect.width() * 0.12f) * textScale.coerceIn(0.5f, 2f)).coerceAtLeast(7f)
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         }
@@ -504,12 +521,12 @@ class StudioProjectStore(context: Context) {
         }
     }
 
-    private fun drawSfx(canvas: Canvas, rect: RectF, text: String) {
+    private fun drawSfx(canvas: Canvas, rect: RectF, text: String, textScale: Float) {
         val label = text.ifBlank { "SFX!" }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD_ITALIC)
-            textSize = min(rect.height() * 0.72f, rect.width() / max(3f, label.length * 0.64f))
+            textSize = (min(rect.height() * 0.72f, rect.width() / max(3f, label.length * 0.64f)) * textScale.coerceIn(0.5f, 2f)).coerceAtLeast(7f)
             style = Paint.Style.STROKE
             strokeJoin = Paint.Join.ROUND
             strokeWidth = max(2f, textSize * 0.10f)
