@@ -691,6 +691,20 @@ private fun TraceLogScreen(
                         Text("Retry scan")
                     }
                 }
+                if (state.failedPaths > 0) {
+                    Button(
+                        onClick = controller::retryTraceFromFailedPath,
+                        enabled = state.serviceConnected && state.ibisPaintForeground && !state.running,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Retry from first failed path")
+                    }
+                    Text(
+                        "Previously completed paths are not replayed. Failed and skipped paths are attempted again.",
+                        color = InkPalette.secondaryText,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 if (state.resumeAvailable && !state.serviceConnected) {
                     Text(
                         "Reconnect Accessibility in Android settings, then return to ibisPaint. The trace resumes after the last completed path.",
