@@ -55,6 +55,7 @@ class FloatingPanelService : Service() {
     private val calibrationHandles = ArrayList<CalibrationHandle>()
     private var calibrationToolbar: LinearLayout? = null
     private var calibrationVisible = false
+    private var panelSnapEdge = -1
 
     private data class CalibrationHandle(
         val view: TextView,
@@ -168,6 +169,7 @@ class FloatingPanelService : Service() {
                         controller = controller,
                         onDrag = ::movePanel,
                         onSnap = ::snapPanel,
+                        onExpandedChanged = ::adjustPanelForExpansion,
                         onClose = { turnOffOverlay() },
                         onOpenMainScreen = {
                             startActivity(
@@ -199,12 +201,19 @@ class FloatingPanelService : Service() {
             gravity = Gravity.TOP or Gravity.START
             val savedX = positionPreferences.getInt(KEY_X_DP, 14)
             val savedY = positionPreferences.getInt(KEY_Y_DP, 110)
+            panelSnapEdge = positionPreferences.getInt(KEY_EDGE, -1)
+            val screenWidth = resources.displayMetrics.widthPixels
+            val restoredX = when (panelSnapEdge) {
+                EDGE_LEFT -> 0
+                EDGE_RIGHT -> (screenWidth - dp(56)).coerceAtLeast(0)
+                else -> dp(savedX)
+            }
             val position = OverlayPosition.clamp(
-                dp(savedX),
+                restoredX,
                 dp(savedY),
                 dp(56),
                 dp(56),
-                resources.displayMetrics.widthPixels,
+                screenWidth,
                 resources.displayMetrics.heightPixels
             )
             x = position.x
@@ -341,6 +350,7 @@ class FloatingPanelService : Service() {
         )
         panelParams.x = position.x
         panelParams.y = position.y
+        panelSnapEdge = -1
         panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
         persistPanelPosition()
     }
@@ -356,8 +366,34 @@ class FloatingPanelService : Service() {
         )
         panelParams.x = position.x
         panelParams.y = position.y
+        panelSnapEdge = if (position.x == 0) EDGE_LEFT else EDGE_RIGHT
         panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
         persistPanelPosition()
+    }
+
+    private fun adjustPanelForExpansion(expanded: Boolean) {
+        panelView?.post {
+            val view = panelView ?: return@post
+            val panelWidth = view.width.takeIf { it > 0 } ?: dp(if (expanded) 292 else 56)
+            val panelHeight = view.height.takeIf { it > 0 } ?: dp(if (expanded) 320 else 56)
+            val desiredX = when (panelSnapEdge) {
+                EDGE_LEFT -> 0
+                EDGE_RIGHT -> (resources.displayMetrics.widthPixels - panelWidth).coerceAtLeast(0)
+                else -> panelParams.x
+            }
+            val position = OverlayPosition.clamp(
+                desiredX,
+                panelParams.y,
+                panelWidth,
+                panelHeight,
+                resources.displayMetrics.widthPixels,
+                resources.displayMetrics.heightPixels
+            )
+            panelParams.x = position.x
+            panelParams.y = position.y
+            runCatching { windowManager.updateViewLayout(view, panelParams) }
+            persistPanelPosition()
+        }
     }
 
     private fun persistPanelPosition() {
@@ -365,6 +401,7 @@ class FloatingPanelService : Service() {
         positionPreferences.edit()
             .putInt(KEY_X_DP, (panelParams.x / density).toInt())
             .putInt(KEY_Y_DP, (panelParams.y / density).toInt())
+            .putInt(KEY_EDGE, panelSnapEdge)
             .apply()
     }
 
@@ -440,5 +477,8 @@ class FloatingPanelService : Service() {
         private const val PREFERENCES_NAME = "floating_overlay_preferences"
         private const val KEY_X_DP = "position_x_dp"
         private const val KEY_Y_DP = "position_y_dp"
+        private const val KEY_EDGE = "position_snap_edge"
+        private const val EDGE_LEFT = 0
+        private const val EDGE_RIGHT = 1
     }
 }
