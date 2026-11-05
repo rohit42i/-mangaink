@@ -1,5 +1,6 @@
 package com.example.mangainker.capture
 
+import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -54,7 +55,7 @@ class ScreenCaptureService : Service() {
             @Suppress("DEPRECATION")
             intent?.getParcelableExtra(EXTRA_RESULT_DATA)
         }
-        if (resultCode != RESULT_OK || resultData == null) {
+        if (resultCode != Activity.RESULT_OK || resultData == null) {
             Logger.warning("Screen capture was cancelled or permission data was missing.")
             stopSelf()
             return START_NOT_STICKY
@@ -128,7 +129,6 @@ class ScreenCaptureService : Service() {
             Logger.info("Recording screen. Waiting for ibisPaint to become foreground.")
         } catch (error: Exception) {
             val reason = "Unable to start screen capture: ${error.message ?: error.javaClass.simpleName}"
-            (application as MangaInkerApp).sessionController.setScreenCaptureState(false, reason)
             stopReason = reason
             (application as MangaInkerApp).sessionController.setScreenCaptureState(false, reason)
             Logger.error(reason)
