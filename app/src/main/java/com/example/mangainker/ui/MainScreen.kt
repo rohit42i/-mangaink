@@ -304,8 +304,8 @@ private fun HomeScreen(
                     Text(if (state.sourceBitmap == null) "Choose page image" else "Replace page image")
                 }
 
-                OutlinedButton(onClick = onCaptureScreen, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp)) {
-                    Text("Capture ibisPaint screen")
+                OutlinedButton(onClick = onCaptureScreen, enabled = !state.captureInProgress, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp)) {
+                    Text(if (state.captureInProgress) "Recording screen…" else "Capture ibisPaint screen")
                 }
                 Text(
                     "Android asks for screen-capture approval each session. Manga Inker waits until ibisPaint is visible, captures one frame, then processes it on this device.",
