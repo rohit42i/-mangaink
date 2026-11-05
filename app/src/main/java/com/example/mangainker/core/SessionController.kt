@@ -1112,7 +1112,7 @@ class SessionController(context: Context) {
                 startedAtElapsedMs = 0L,
                 isError = false,
                 progress = 0f,
-                message = "Stopped. No queued outline paths will be dispatched."
+                message = "Stopped. Queued paths were cleared; an already accepted gesture segment may finish for up to 500 ms."
             )
         }
         Logger.warning("Stop requested; queued path segments cleared")
