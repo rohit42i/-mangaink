@@ -16,8 +16,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import com.example.mangainker.MangaInkerApp
 import com.example.mangainker.capture.ScreenCaptureService
+import com.example.mangainker.core.SessionCommand
 import com.example.mangainker.permissions.PermissionChecks
-import com.example.mangainker.overlay.FloatingPanelService
 import com.example.mangainker.overlay.AssistantEnableResult
 import com.example.mangainker.overlay.OverlayActivation
 import com.example.mangainker.update.GitHubUpdateManager
@@ -211,6 +211,11 @@ class MainActivity : ComponentActivity() {
 
     private fun setAssistantEnabled(enabled: Boolean) {
         if (!enabled) {
+            val session = controller.state.value
+            if (session.scanInProgress) controller.cancelScan()
+            if (session.running) controller.dispatch(SessionCommand.Stop)
+            if (session.calibrating) controller.cancelCalibration()
+            if (session.captureInProgress) stopService(Intent(this, ScreenCaptureService::class.java))
             OverlayActivation.disable(this)
             permissionRefreshKey++
             return
