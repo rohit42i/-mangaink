@@ -1,6 +1,7 @@
 package com.example.mangainker.ui
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -20,6 +21,28 @@ class MainActivity : ComponentActivity() {
     private val controller by lazy { (application as MangaInkerApp).sessionController }
     private val updateManager by lazy { (application as MangaInkerApp).updateManager }
     private var permissionRefreshKey by mutableIntStateOf(0)
+    private var pendingExportBitmap: Bitmap? = null
+
+    private val createPngDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
+        val bitmap = pendingExportBitmap
+        pendingExportBitmap = null
+        if (uri == null || bitmap == null) {
+            bitmap?.recycle()
+            return@registerForActivityResult
+        }
+        try {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    "Android could not encode the PNG."
+                }
+            } ?: error("Android could not open the selected export destination.")
+            Toast.makeText(this, "PNG exported successfully.", Toast.LENGTH_LONG).show()
+        } catch (error: Exception) {
+            Toast.makeText(this, "PNG export failed: " + (error.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+        } finally {
+            if (!bitmap.isRecycled) bitmap.recycle()
+        }
+    }
 
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let(controller::importPage)
@@ -44,10 +67,22 @@ class MainActivity : ComponentActivity() {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + packageName)))
                     },
                     onShowFloatingPanel = { showFloatingPanel() },
-                    onOpenIbisPaint = { openIbisPaint() }
+                    onOpenIbisPaint = { openIbisPaint() },
+                    onExportImage = { bitmap -> exportPng(bitmap) }
                 )
             }
         }
+    }
+
+
+    private fun exportPng(bitmap: Bitmap) {
+        if (bitmap.isRecycled) {
+            Toast.makeText(this, "The export image is no longer available.", Toast.LENGTH_LONG).show()
+            return
+        }
+        pendingExportBitmap?.takeIf { !it.isRecycled }?.recycle()
+        pendingExportBitmap = bitmap
+        createPngDocument.launch("MangaInk-Page.png")
     }
 
     private fun showFloatingPanel() {
