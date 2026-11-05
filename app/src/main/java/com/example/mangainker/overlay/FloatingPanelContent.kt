@@ -68,6 +68,7 @@ fun FloatingPanelContent(
     controller: SessionController,
     onDrag: (Int, Int) -> Unit,
     onSnap: () -> Unit,
+    onExpandedChanged: (Boolean) -> Unit,
     onClose: () -> Unit,
     onOpenMainScreen: () -> Unit,
     onReconnectAccessibility: () -> Unit,
@@ -76,6 +77,10 @@ fun FloatingPanelContent(
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     var moreExpanded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(expanded) {
+        onExpandedChanged(expanded)
+    }
 
     LaunchedEffect(expanded, state.running, state.paused, state.calibrating, state.scanInProgress, state.panelAutoCollapseMs) {
         if (expanded && !state.running && !state.calibrating && !state.scanInProgress && state.panelAutoCollapseMs > 0L) {
