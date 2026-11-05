@@ -346,14 +346,20 @@ private fun HomeScreen(
                 }
 
                 Button(
-                    onClick = controller::scanPage,
-                    enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running && !state.selectionMode,
+                    onClick = {
+                        if (state.scanInProgress) controller.cancelScan()
+                        else controller.scanPage()
+                    },
+                    enabled = !state.running && (
+                        state.scanInProgress ||
+                            (state.sourceBitmap != null && !state.selectionMode)
+                    ),
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent),
                     shape = RoundedCornerShape(9.dp)
                 ) {
                     Text(
-                        if (state.scanInProgress) "Scanning…"
+                        if (state.scanInProgress) "Stop current operation"
                         else if (state.selectedLeft > 0f || state.selectedTop > 0f || state.selectedRight < 1f || state.selectedBottom < 1f) "Scan selected area"
                         else if (state.paths.isEmpty()) "Scan full page"
                         else "Scan full page again"
