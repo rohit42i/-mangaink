@@ -31,6 +31,9 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Drag the compact bubble; verify it snaps to either edge.
 - [ ] Expand, minimize and reopen the panel.
 - [ ] Verify More menu actions are available and enabled only when applicable.
+- [ ] Start a full-page scan from More and verify stage text and progress update in the overlay.
+- [ ] Tap Stop scanning during a scan and verify it cancels without clearing the imported page.
+- [ ] Turn the overlay off during a scan and verify the operation is cancelled.
 
 ## Import and full-page scan
 
@@ -68,7 +71,8 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Verify path progress advances and outlines follow the source.
 - [ ] Pause; ensure no new segment starts after the active segment finishes.
 - [ ] Resume; ensure tracing continues.
-- [ ] Stop; ensure queued paths are not dispatched afterward.
+- [ ] Stop; ensure queued paths are not dispatched afterward and the stop action is immediate.
+- [ ] Turn the overlay off during tracing and verify tracing is stopped.
 - [ ] Test volume-down long-press stop.
 - [ ] Leave ibisPaint and verify tracing stops.
 - [ ] Interrupt/disable Accessibility and verify recovery state.
