@@ -2,7 +2,7 @@ name: Manga Inker Android CI
 
 on:
   push:
-    branches: [ main, 'feature/stage-1-gesture-replay', 'feature/full-page-outline-repair' ]
+    branches: [ main, 'feature/stage-1-gesture-replay', 'feature/full-page-outline-repair', 'feature/mangaink-master-build' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
