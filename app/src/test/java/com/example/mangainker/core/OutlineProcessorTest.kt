@@ -77,7 +77,68 @@ class OutlineProcessorTest {
         val result = OutlineProcessor.process(pixels, width, height, minComponentPixels = 1, smoothing = 0f)
 
         assertEquals(1, result.paths.size)
-        assertTrue(result.paths.single().length > 150f)
+        val loop = result.paths.single()
+        assertTrue(loop.length > 150f)
+        assertEquals("Closed panel borders must return to their starting point", loop.points.first(), loop.points.last())
+    }
+
+    @Test
+    fun preservesDenseSeparatedHatchingLinesWithoutJoiningThem() {
+        val width = 240
+        val height = 180
+        val pixels = ByteArray(width * height) { 0xff.toByte() }
+        for (y in 12..156 step 12) {
+            for (x in 8..231) {
+                pixels[y * width + x] = 0
+                pixels[(y + 1) * width + x] = 0
+            }
+        }
+
+        val result = OutlineProcessor.process(
+            pixels,
+            width,
+            height,
+            minComponentPixels = 1,
+            smoothing = 0f,
+            detailPreservation = 1f
+        )
+
+        assertTrue("Separated hatching strokes must remain separate", result.paths.size >= 12)
+        assertTrue("Hatching paths must remain inside the page", result.paths.flatMap { it.points }.all {
+            it.x in 0f..(width - 1).toFloat() && it.y in 0f..(height - 1).toFloat()
+        })
+    }
+
+    @Test
+    fun preservesAnIntersectingCrossWithoutProducingOutOfBoundsPoints() {
+        val width = 100
+        val height = 100
+        val pixels = ByteArray(width * height) { 0xff.toByte() }
+        for (step in 10..89) {
+            for (thickness in -1..1) {
+                val downX = step
+                val downY = step + thickness
+                val upX = step
+                val upY = 99 - step + thickness
+                if (downY in 0 until height) pixels[downY * width + downX] = 0
+                if (upY in 0 until height) pixels[upY * width + upX] = 0
+            }
+        }
+
+        val result = OutlineProcessor.process(
+            pixels,
+            width,
+            height,
+            minComponentPixels = 1,
+            smoothing = 0f,
+            detailPreservation = 1f
+        )
+
+        assertTrue("The intersecting mark must produce drawable paths", result.paths.isNotEmpty())
+        assertTrue(result.paths.sumOf { it.length.toDouble() } > 100.0)
+        assertTrue(result.paths.flatMap { it.points }.all {
+            it.x in 0f..(width - 1).toFloat() && it.y in 0f..(height - 1).toFloat()
+        })
     }
 
     @Test
