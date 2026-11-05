@@ -25,7 +25,6 @@ import androidx.compose.material.icons.outlined.Minimize
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.CropFree
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -70,7 +69,6 @@ fun FloatingPanelContent(
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     var moreExpanded by remember { mutableStateOf(false) }
-    var showStopConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(expanded, state.running, state.paused, state.calibrating, state.scanInProgress, state.panelAutoCollapseMs) {
         if (expanded && !state.running && !state.calibrating && !state.scanInProgress && state.panelAutoCollapseMs > 0L) {
@@ -293,10 +291,7 @@ fun FloatingPanelContent(
                         }
 
                         OutlinedButton(
-                            onClick = {
-                                if (controller.shouldConfirmStop()) showStopConfirmation = true
-                                else controller.dispatch(SessionCommand.Stop)
-                            },
+                            onClick = { controller.dispatch(SessionCommand.Stop) },
                             enabled = state.running,
                             modifier = Modifier.size(42.dp),
                             shape = RoundedCornerShape(10.dp),
@@ -324,23 +319,6 @@ fun FloatingPanelContent(
         }
     }
 
-    if (showStopConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showStopConfirmation = false },
-            title = { Text("Stop tracing?") },
-            text = { Text("This session has been running for more than 30 seconds. Stop after the active gesture finishes.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showStopConfirmation = false
-                    controller.dispatch(SessionCommand.Stop)
-                }) { Text("Stop") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStopConfirmation = false }) { Text("Continue") }
-            },
-            containerColor = InkPalette.surface
-        )
-    }
 }
 
 private fun stateDot(state: SessionState): Color = when {
