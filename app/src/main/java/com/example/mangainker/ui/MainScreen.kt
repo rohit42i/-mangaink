@@ -284,6 +284,14 @@ private fun HomeScreen(
                 androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
                 SetupRow("Accessibility service", "Sends the outline paths as touch gestures", accessibilityGranted, "Open", onOpenAccessibility)
                 androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
+                SetupRow(
+                    "Screen capture",
+                    "Android asks for approval each capture session",
+                    state.captureInProgress,
+                    if (state.captureInProgress) "Recording" else "Start",
+                    onCaptureScreen
+                )
+                androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
                 SetupRow("Restricted settings", "Manual confirmation for sideloaded builds", state.restrictedSettingsConfirmed, "Guide", onRestrictedGuide)
                 androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
                 SetupRow("Battery optimization", "Check whether Android allows background work", batteryExempt, "Fix", onOpenAppInfo)
