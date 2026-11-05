@@ -1,7 +1,6 @@
 package com.example.mangainker.ui
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertSame
 import org.junit.Test
 
 class StudioPageOrderTest {
