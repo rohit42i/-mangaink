@@ -69,6 +69,8 @@ import com.example.mangainker.core.SessionCommand
 import com.example.mangainker.core.SessionController
 import com.example.mangainker.core.SessionState
 import com.example.mangainker.permissions.PermissionChecks
+import com.example.mangainker.overlay.FloatingAssistantState
+import com.example.mangainker.overlay.OverlayActivation
 import com.example.mangainker.update.GitHubUpdateManager
 import com.example.mangainker.update.UpdateUiState
 
@@ -87,6 +89,7 @@ fun MangaInkerRoot(
     onOpenAccessibilitySettings: () -> Unit,
     onOpenAppInfo: () -> Unit,
     onShowFloatingPanel: () -> Unit,
+    onToggleAssistant: (Boolean) -> Unit,
     onOpenIbisPaint: () -> Unit,
     onExportImage: (Bitmap) -> Unit,
     onExportCbz: (StudioProjectStore, StudioProject) -> Unit
@@ -94,6 +97,7 @@ fun MangaInkerRoot(
     val state by controller.state.collectAsState()
     val updateState by updateManager.state.collectAsState()
     val logs by Logger.lines.collectAsState()
+    val assistantState by OverlayActivation.state.collectAsState()
     val context = LocalContext.current
     val studioStore = remember(context) { StudioProjectStore(context) }
     val overlayGranted = remember(permissionRefreshKey) { PermissionChecks.overlayGranted(context) }
@@ -150,6 +154,8 @@ fun MangaInkerRoot(
                 onOpenAppInfo = onOpenAppInfo,
                 onRestrictedGuide = { showRestrictedGuide = true },
                 onShowFloatingPanel = onShowFloatingPanel,
+                assistantState = assistantState,
+                onToggleAssistant = onToggleAssistant,
                 onOpenIbisPaint = onOpenIbisPaint
             )
             AppTab.Studio -> StudioWorkspaceScreen(
@@ -238,6 +244,8 @@ private fun HomeScreen(
     onOpenAppInfo: () -> Unit,
     onRestrictedGuide: () -> Unit,
     onShowFloatingPanel: () -> Unit,
+    assistantState: FloatingAssistantState,
+    onToggleAssistant: (Boolean) -> Unit,
     onOpenIbisPaint: () -> Unit
 ) {
     val setupComplete = overlayGranted && accessibilityGranted && batteryExempt
@@ -303,6 +311,54 @@ private fun HomeScreen(
                 SetupRow("Battery optimization", "Check whether Android allows background work", batteryExempt, "Fix", onOpenAppInfo)
                 Text(
                     "ColorOS: open App info for Manga Inker, enable Auto-launch and Background activity, then set Battery usage to Unrestricted. Menu names vary by ColorOS version. Screen capture still needs Android approval every session.",
+                    color = InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = InkPalette.surface),
+            shape = RoundedCornerShape(14.dp),
+            border = BorderStroke(1.dp, if (assistantState.running) InkPalette.success else InkPalette.outline)
+        ) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Floating assistant", style = MaterialTheme.typography.titleMedium)
+                        Text("Master control for the on-screen Manga Inker bubble", color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(
+                        checked = assistantState.requested,
+                        onCheckedChange = onToggleAssistant
+                    )
+                }
+                Text(
+                    when {
+                        assistantState.running && !overlayGranted -> "Service running, but Android overlay permission is currently unavailable."
+                        assistantState.running && !accessibilityGranted -> "Service running. Accessibility is disconnected, so drawing gestures are unavailable."
+                        assistantState.running -> "Service running. Floating controls are active."
+                        assistantState.requested && !overlayGranted -> "Waiting for Display over other apps permission. Grant it, then return to Manga Inker."
+                        assistantState.requested && assistantState.error != null -> "Could not start: " + assistantState.error
+                        assistantState.requested -> "Starting floating controls…"
+                        else -> "Off. The floating assistant service is not running."
+                    },
+                    color = when {
+                        assistantState.error != null -> InkPalette.error
+                        assistantState.running -> InkPalette.success
+                        else -> InkPalette.secondaryText
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
+                if (!accessibilityGranted) {
+                    Text(
+                        "Enable Manga Inker under Android Accessibility settings before using Test or Start to draw in ibisPaint.",
+                        color = InkPalette.secondaryText,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Text(
+                    "Screen capture permission is separate and Android will ask for approval each time you capture.",
                     color = InkPalette.secondaryText,
                     style = MaterialTheme.typography.bodySmall
                 )
