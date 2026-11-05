@@ -91,9 +91,9 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 7. Export: high-resolution PNG page export, consistent page dimensions, and project/page naming.
 8. Usability: tooltips, shortcuts/gestures where Android permits, onboarding, settings, and diagnostics.
 
-**Implemented in this branch:** private local project create/open/delete; single-page project storage; drag-to-create panel frames; dotted screentone regions; grayscale gradients; speed-line effects; editable dialogue bubbles and SFX text; PNG composition and Android Save As export. Physical export and reopen tests are still pending.
+**Implemented in the current repair branch:** private local projects; backward-compatible multi-page storage; add/duplicate/reorder/delete/rename pages; project rename; movable/resizable/selectable comic elements; layer ordering; 50-step undo/redo; panel frames; adjustable screentone and speed-line density; gradients; dialogue bubbles with text wrapping, editable tail position and text scale; rotatable/scalable SFX; per-element rotation; single-page PNG export; and whole-project CBZ export. Preview and PNG/CBZ rendering use the same compositor. Android Save As is used for exports.
 
-**Still outstanding:** multi-page sequencing and reordering within a single project, duplicate pages, panel resizing/reordering after creation, richer balloon tails and text wrapping, brush presets, editable ink layers, undo/redo history beyond the most recent added element, richer gradient controls, configurable speed-line direction/density, hatching presets and texture libraries. Do not mark the complete studio roadmap finished until those tools are implemented and tested.
+**Still outstanding:** brush presets and editable ink layers (ibisPaint remains the actual drawing engine); richer gradients and texture libraries; hatching presets beyond adjustable dot tone; independent speed-line direction/shape presets; additional balloon types (thought, shout, caption); richer typography (font selection, alignment, outlines); page templates/canvas resizing; and physical export/reopen testing. The processing page remains downsampled to a 1,400 px longest side, so this is not yet a full-resolution desktop publishing suite.
 
 ## G. GitHub updates and release
 
@@ -134,11 +134,16 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 - Added stage-based and per-path progress reporting to the main page workspace and floating overlay.
 - Made the floating Stop action immediate rather than putting a confirmation dialog in front of the stop gate.
 - Turning off the floating overlay now also cancels active scanning and tracing.
-- Added regression coverage for a seven-panel page and for cancellation during outline extraction.
+- Added regression coverage for a seven-panel page, dense separated hatching, intersecting linework, explicit closed-loop endpoints, ambiguous multi-region canvas capture and cancellation during outline extraction.
+- Added higher-resolution decode planning that avoids unnecessary power-of-two downsampling before the 1,400 px processing resize.
+- Added a safe fallback when large disconnected light regions could represent separate panels rather than one complete canvas.
+- Added an explicit Stop capture notification action and cancellation during captured-frame import.
+- Added multi-page Comic Studio projects with page ordering, duplication, deletion, renaming and CBZ export.
+- Added object selection, movement, resizing, rotation, layer ordering, dialogue/SFX text scale, bubble-tail placement, effect-density controls and undo/redo.
 - Added a local Comic Studio tab with project create/open/delete, panel and screentone placement, grayscale gradients, speed lines, editable dialogue/SFX elements, and PNG export.
 - Restricted GitHub Contents write permission to the main-only release publishing job; ordinary verification builds use read-only repository permission.
 - Restored the existing Android application ID `com.rohit.mangainker` and aligned the release update manifest.
 
 These are source changes, not proof of device behaviour. The CI job still needs to report green, and the OPPO F29 checklist must be completed physically.
 
-Status on this branch: core page-to-ink implementation improved; comic-studio roadmap and physical device verification remain in progress.
+Status on this branch: multi-page Comic Studio and its export path are implemented in source; scan and playback quality still require visual regression with real artwork; OPPO F29 hardware verification remains outstanding. The release-signing key and signing passwords are still stored in repository source because the connected GitHub actions cannot create repository secrets; do not distribute this repository or keystore until the signing secret migration is completed.
