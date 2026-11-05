@@ -194,7 +194,17 @@ class SessionController(context: Context) {
                     minComponentPixels = minimum,
                     smoothing = smoothing,
                     detailPreservation = detail,
-                    cancellationCheck = cancellationCheck
+                    cancellationCheck = cancellationCheck,
+                    onProgress = { progress, status ->
+                        cancellationCheck()
+                        mutableState.update { current ->
+                            if (current.scanInProgress) {
+                                current.copy(scanProgress = progress, scanStatus = status)
+                            } else {
+                                current
+                            }
+                        }
+                    }
                 )
                 currentCoroutineContext().ensureActive()
                 if (mutableState.value.sourceBitmap !== bitmap) return@launch
