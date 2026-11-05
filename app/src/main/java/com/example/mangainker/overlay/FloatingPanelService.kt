@@ -159,6 +159,9 @@ class FloatingPanelService : Service() {
                                 Intent(this@FloatingPanelService, MainActivity::class.java)
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             )
+                        },
+                        onReconnectAccessibility = {
+                            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         }
                     )
                 }
