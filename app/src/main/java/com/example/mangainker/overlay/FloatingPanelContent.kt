@@ -64,7 +64,8 @@ fun FloatingPanelContent(
     onDrag: (Int, Int) -> Unit,
     onSnap: () -> Unit,
     onClose: () -> Unit,
-    onOpenMainScreen: () -> Unit
+    onOpenMainScreen: () -> Unit,
+    onReconnectAccessibility: () -> Unit
 ) {
     val state by controller.state.collectAsState()
     var expanded by remember { mutableStateOf(false) }
@@ -213,14 +214,14 @@ fun FloatingPanelContent(
                     )
                     Text(
                         state.message,
-                        color = if (state.isError) InkPalette.warning else InkPalette.secondaryText,
+                        color = if (state.isError) InkPalette.error else InkPalette.secondaryText,
                         fontSize = 11.sp,
                         maxLines = 3
                     )
 
                     if (state.resumeAvailable && !state.serviceConnected) {
                         Button(
-                            onClick = onOpenMainScreen,
+                            onClick = onReconnectAccessibility,
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = InkPalette.error,
