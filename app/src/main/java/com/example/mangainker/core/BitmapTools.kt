@@ -4,7 +4,6 @@ import android.content.ContentResolver
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
-import kotlin.math.ceil
 import kotlin.math.max
 
 object BitmapTools {
@@ -18,19 +17,24 @@ object BitmapTools {
             throw IllegalArgumentException("The selected file is not a supported image.")
         }
 
-        val requiredSample = max(
-            1,
-            ceil(max(bounds.outWidth, bounds.outHeight).toDouble() / MAX_SIDE).toInt()
-        )
-        var sample = 1
-        while (sample < requiredSample && sample < (1 shl 30)) sample = sample shl 1
-
+        val sample = BitmapDecodePlanner.inSampleSize(bounds.outWidth, bounds.outHeight, MAX_SIDE)
         val options = BitmapFactory.Options().apply {
             inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
-        return resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-            ?: throw IllegalArgumentException("The image could not be decoded.")
+        val decoded = resolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
+        } ?: throw IllegalArgumentException("The image could not be decoded.")
+
+        val longestSide = max(decoded.width, decoded.height)
+        if (longestSide <= MAX_SIDE) return decoded
+
+        val scale = MAX_SIDE.toFloat() / longestSide.toFloat()
+        val targetWidth = (decoded.width * scale).toInt().coerceAtLeast(1)
+        val targetHeight = (decoded.height * scale).toInt().coerceAtLeast(1)
+        val resized = Bitmap.createScaledBitmap(decoded, targetWidth, targetHeight, true)
+        if (resized !== decoded && !decoded.isRecycled) decoded.recycle()
+        return resized
     }
 
     fun grayscale(bitmap: Bitmap, cancellationCheck: () -> Unit = {}): ByteArray {
