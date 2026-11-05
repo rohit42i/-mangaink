@@ -1,8 +1,17 @@
 package com.example.mangainker.core
 
-import android.graphics.Rect
 import kotlin.math.max
 import kotlin.math.min
+
+data class PageBounds(
+    val left: Int,
+    val top: Int,
+    val right: Int,
+    val bottom: Int
+) {
+    fun width(): Int = right - left
+    fun height(): Int = bottom - top
+}
 
 /**
  * Finds a large, connected light canvas inside a screen capture.
@@ -15,7 +24,7 @@ internal object PageBoundsDetector {
         width: Int,
         height: Int,
         cancellationCheck: () -> Unit = {}
-    ): Rect? {
+    ): PageBounds? {
         if (width < 40 || height < 40 || grayscale.size != width * height) return null
 
         val visited = ByteArray(grayscale.size)
@@ -92,7 +101,7 @@ internal object PageBoundsDetector {
         if (bestCount == 0) return null
         val padX = max(2, ((bestRight - bestLeft + 1) * EDGE_PADDING).toInt())
         val padY = max(2, ((bestBottom - bestTop + 1) * EDGE_PADDING).toInt())
-        return Rect(
+        return PageBounds(
             (bestLeft - padX).coerceAtLeast(0),
             (bestTop - padY).coerceAtLeast(0),
             (bestRight + padX + 1).coerceAtMost(width),
