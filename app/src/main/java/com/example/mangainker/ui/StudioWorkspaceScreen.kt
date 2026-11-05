@@ -65,7 +65,8 @@ fun StudioWorkspaceScreen(
     modifier: Modifier,
     importedPage: Bitmap?,
     store: StudioProjectStore,
-    onExportImage: (Bitmap) -> Unit
+    onExportImage: (Bitmap) -> Unit,
+    onExportCbz: (StudioProject) -> Unit
 ) {
     var projects by remember { mutableStateOf(store.listProjects()) }
     var project by remember { mutableStateOf<StudioProject?>(null) }
@@ -759,6 +760,16 @@ fun StudioWorkspaceScreen(
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("Export finished page as PNG") }
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                onExportCbz(currentProject)
+                            } catch (error: Exception) {
+                                message = "Comic export failed: " + (error.message ?: "unknown error")
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Export whole project as CBZ") }
                 }
             }
         }
