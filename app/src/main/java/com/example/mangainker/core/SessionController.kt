@@ -156,26 +156,52 @@ class SessionController(context: Context) {
         scanJob?.cancel()
         importJob?.cancel()
         importJob = scope.launch(Dispatchers.Default) {
-            var accepted: android.graphics.Bitmap? = null
+            var source = captured
+            var working: android.graphics.Bitmap? = null
             try {
-                val maxSide = 1400
-                val scale = minOf(1f, maxSide.toFloat() / maxOf(captured.width, captured.height))
-                accepted = if (scale < 1f) {
-                    android.graphics.Bitmap.createScaledBitmap(
+                val gray = BitmapTools.grayscale(captured) {}
+                val pageBounds = PageBoundsDetector.detect(gray, captured.width, captured.height)
+                gray.fill(0)
+                if (pageBounds != null &&
+                    pageBounds.width() >= captured.width * 0.30f &&
+                    pageBounds.height() >= captured.height * 0.30f
+                ) {
+                    working = android.graphics.Bitmap.createBitmap(
                         captured,
-                        (captured.width * scale).toInt().coerceAtLeast(1),
-                        (captured.height * scale).toInt().coerceAtLeast(1),
+                        pageBounds.left,
+                        pageBounds.top,
+                        pageBounds.width(),
+                        pageBounds.height()
+                    )
+                    if (!captured.isRecycled) captured.recycle()
+                    source = working!!
+                    Logger.info(
+                        "Auto-detected artwork canvas bounds=" +
+                            pageBounds.left + "," + pageBounds.top + "," +
+                            pageBounds.right + "," + pageBounds.bottom
+                    )
+                } else {
+                    Logger.warning("Artwork page bounds were ambiguous; keeping the full captured screen for manual area selection.")
+                }
+
+                val maxSide = 1400
+                val scale = minOf(1f, maxSide.toFloat() / maxOf(source.width, source.height))
+                val bitmap = if (scale < 1f) {
+                    android.graphics.Bitmap.createScaledBitmap(
+                        source,
+                        (source.width * scale).toInt().coerceAtLeast(1),
+                        (source.height * scale).toInt().coerceAtLeast(1),
                         true
-                    ).also { if (it !== captured && !captured.isRecycled) captured.recycle() }
-                } else captured
+                    ).also { if (it !== source && !source.isRecycled) source.recycle() }
+                } else source
                 val previous = mutableState.value.sourceBitmap
                 mutableState.update {
                     it.copy(
                         captureInProgress = false,
-                        sourceBitmap = accepted,
-                        sourceName = "ibisPaint screen capture",
-                        pageWidth = accepted!!.width,
-                        pageHeight = accepted!!.height,
+                        sourceBitmap = bitmap,
+                        sourceName = if (pageBounds == null) "ibisPaint screen capture" else "Detected ibisPaint page",
+                        pageWidth = bitmap.width,
+                        pageHeight = bitmap.height,
                         paths = emptyList(),
                         selectedLeft = 0f,
                         selectedTop = 0f,
@@ -184,8 +210,8 @@ class SessionController(context: Context) {
                         selectionMode = false,
                         scanLeftPx = 0,
                         scanTopPx = 0,
-                        scanWidthPx = accepted!!.width,
-                        scanHeightPx = accepted!!.height,
+                        scanWidthPx = bitmap.width,
+                        scanHeightPx = bitmap.height,
                         foregroundPixels = 0,
                         skeletonPixels = 0,
                         discardedComponents = 0,
@@ -196,28 +222,37 @@ class SessionController(context: Context) {
                         testGestureVerified = false,
                         scanInProgress = false,
                         scanProgress = 0f,
-                        scanStatus = "Screen captured. Preparing the local outline scan…",
+                        scanStatus = if (pageBounds == null) {
+                            "Screen captured. Page bounds were not clear; select the artwork area before scanning."
+                        } else {
+                            "Artwork page detected. Preparing the full-page outline scan…"
+                        },
                         isError = false,
-                        message = "One ibisPaint screen frame was captured locally. No screenshot was uploaded."
+                        message = if (pageBounds == null) {
+                            "Captured screen kept intact. Use Select scan area to exclude ibisPaint controls."
+                        } else {
+                            "Artwork canvas bounds detected and cropped locally."
+                        }
                     )
                 }
-                if (previous != null && previous !== accepted && !previous.isRecycled) previous.recycle()
-                Logger.info("Screen frame imported locally size=${accepted!!.width}x${accepted!!.height}")
-                scanFullPage()
+                if (previous != null && previous !== bitmap && !previous.isRecycled) previous.recycle()
+                Logger.info("Screen frame imported locally size=" + bitmap.width + "x" + bitmap.height)
+                if (pageBounds != null) scanFullPage()
             } catch (error: Exception) {
-                val bitmapToRecycle = accepted ?: captured
-                if (!bitmapToRecycle.isRecycled && mutableState.value.sourceBitmap !== bitmapToRecycle) {
-                    bitmapToRecycle.recycle()
+                val recycleTarget = working ?: captured
+                if (!recycleTarget.isRecycled && mutableState.value.sourceBitmap !== recycleTarget) {
+                    recycleTarget.recycle()
                 }
                 mutableState.update {
                     it.copy(
+                        captureInProgress = false,
                         scanInProgress = false,
                         isError = true,
                         scanStatus = error.message ?: "The captured screen could not be processed.",
                         message = "Screen capture import failed."
                     )
                 }
-                Logger.error("Captured screen import failed: ${error.message ?: error.javaClass.simpleName}")
+                Logger.error("Captured screen import failed: " + (error.message ?: error.javaClass.simpleName))
             }
         }
     }
