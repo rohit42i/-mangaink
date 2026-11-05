@@ -54,14 +54,14 @@ object OutlineProcessor {
                 0.86f + 0.12f * ((index + 1).toFloat() / rawPaths.size.coerceAtLeast(1)),
                 "Refining path ${index + 1} of ${rawPaths.size}…"
             )
-            if (raw.size < 2) return@mapNotNull null
+            if (raw.size < 2) return@mapIndexedNotNull null
             val detail = detailPreservation.coerceIn(0f, 1f)
             val simplifyTolerance = 2.0f - (1.5f * detail)
             val simplified = simplify(raw, simplifyTolerance, cancellationCheck)
             val smoothed = smooth(simplified, smoothing.coerceIn(0f, 1f), cancellationCheck)
-            if (smoothed.size < 2) return@mapNotNull null
+            if (smoothed.size < 2) return@mapIndexedNotNull null
             val length = pathLength(smoothed)
-            if (length < 4f) return@mapNotNull null
+            if (length < 4f) return@mapIndexedNotNull null
             InkPath(smoothed, length)
         }
 
