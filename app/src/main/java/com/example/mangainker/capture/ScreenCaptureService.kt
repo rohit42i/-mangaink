@@ -4,12 +4,14 @@ import android.app.Activity
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
+import android.graphics.drawable.Icon
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
@@ -49,8 +51,10 @@ class ScreenCaptureService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            stopReason = "Screen capture cancelled from the floating controls."
-            (application as? MangaInkerApp)?.sessionController?.setScreenCaptureState(false, stopReason)
+            stopReason = "Screen capture cancelled from the persistent notification."
+            val controller = (application as? MangaInkerApp)?.sessionController
+            controller?.cancelScan()
+            controller?.setScreenCaptureState(false, stopReason)
             stopSelf()
             return START_NOT_STICKY
         }
@@ -156,11 +160,26 @@ class ScreenCaptureService : Service() {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
         }
+        val stopIntent = Intent(this, ScreenCaptureService::class.java).apply {
+            action = ACTION_STOP
+        }
+        val stopPendingIntent = PendingIntent.getService(
+            this,
+            NOTIFICATION_ID,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val stopAction = Notification.Action.Builder(
+            Icon.createWithResource(this, android.R.drawable.ic_menu_close_clear_cancel),
+            "Stop capture",
+            stopPendingIntent
+        ).build()
         val notification = builder
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setContentTitle("Recording screen")
-            .setContentText("Manga Inker is capturing one ibisPaint frame for local scanning.")
+            .setContentText("Capturing one ibisPaint frame for local scanning. Tap Stop to cancel.")
             .setOngoing(true)
+            .addAction(stopAction)
             .build()
         if (Build.VERSION.SDK_INT >= 29) {
             startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
