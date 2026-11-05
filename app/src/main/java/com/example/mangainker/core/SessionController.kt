@@ -137,8 +137,8 @@ class SessionController(context: Context) {
             mutableState.update { it.copy(isError = true, scanStatus = "Stop tracing before scanning another page.") }
             return
         }
+        if (snapshot.scanInProgress || scanJob?.isActive == true) return
 
-        scanJob?.cancel()
         val left = floor(snapshot.selectedLeft * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
         val top = floor(snapshot.selectedTop * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
         val right = ceil(snapshot.selectedRight * bitmap.width).toInt().coerceIn(left + 1, bitmap.width)
@@ -149,25 +149,25 @@ class SessionController(context: Context) {
         val minimum = snapshot.minComponentPixels
         val smoothing = snapshot.smoothing
         val detail = snapshot.detailPreservation
+        mutableState.update {
+            it.copy(
+                scanInProgress = true,
+                scanProgress = 0.05f,
+                scanStatus = if (left == 0 && top == 0 && right == bitmap.width && bottom == bitmap.height)
+                    "Preparing the full page scan…"
+                else "Preparing selected area scan…",
+                paths = emptyList(),
+                calibration = null,
+                testGestureVerified = false,
+                isError = false
+            )
+        }
         scanJob = scope.launch(Dispatchers.Default) {
             val scanCoroutineJob = currentCoroutineContext()[Job]
             val cancellationCheck: () -> Unit = {
                 if (scanCoroutineJob?.isActive == false) {
                     throw CancellationException("Page scan cancelled.")
                 }
-            }
-            mutableState.update {
-                it.copy(
-                    scanInProgress = true,
-                    scanProgress = 0.05f,
-                    scanStatus = if (left == 0 && top == 0 && right == bitmap.width && bottom == bitmap.height)
-                        "Preparing the full page scan…"
-                    else "Preparing selected area scan…",
-                    paths = emptyList(),
-                    calibration = null,
-                    testGestureVerified = false,
-                    isError = false
-                )
             }
             try {
                 val fullGray = BitmapTools.grayscale(bitmap, cancellationCheck)
