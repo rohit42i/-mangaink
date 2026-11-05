@@ -3,6 +3,7 @@ package com.example.mangainker.overlay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,28 +82,36 @@ fun FloatingPanelContent(
     Surface(
         color = InkPalette.surface,
         contentColor = InkPalette.primaryText,
-        shape = RoundedCornerShape(22.dp),
+        shape = if (expanded) RoundedCornerShape(22.dp) else CircleShape,
         border = BorderStroke(1.dp, InkPalette.outline),
-        modifier = Modifier.widthIn(min = if (expanded) 276.dp else 68.dp, max = 292.dp)
+        modifier = Modifier.widthIn(min = if (expanded) 276.dp else 56.dp, max = 292.dp)
     ) {
-        Column(Modifier.padding(horizontal = 9.dp, vertical = 7.dp)) {
+        Column(Modifier.padding(horizontal = if (expanded) 9.dp else 0.dp, vertical = if (expanded) 7.dp else 0.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth().height(42.dp),
+                modifier = Modifier.fillMaxWidth().height(if (expanded) 42.dp else 56.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(32.dp).pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragEnd = onSnap,
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                onDrag(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
-                            }
-                        )
-                    },
+                    modifier = Modifier.size(if (expanded) 32.dp else 56.dp)
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragEnd = onSnap,
+                                onDrag = { change, dragAmount ->
+                                    change.consume()
+                                    onDrag(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
+                                }
+                            )
+                        }
+                        .pointerInput(expanded) {
+                            detectTapGestures(onTap = { if (!expanded) expanded = true })
+                        },
                     contentAlignment = Alignment.Center
                 ) {
-                    Box(Modifier.size(12.dp).clip(CircleShape).background(stateDot(state)))
+                    Box(
+                        Modifier.size(if (expanded) 12.dp else 13.dp)
+                            .clip(CircleShape)
+                            .background(stateDot(state))
+                    )
                 }
 
                 if (expanded) {
@@ -184,15 +193,9 @@ fun FloatingPanelContent(
                             )
                         }
                     }
-                } else {
-                    Spacer(Modifier.weight(1f))
-                }
-
-                IconButton(onClick = { expanded = !expanded }) {
-                    Icon(
-                        if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                        contentDescription = if (expanded) "Collapse controls" else "Expand controls"
-                    )
+                    IconButton(onClick = { expanded = false }) {
+                        Icon(Icons.Outlined.ExpandLess, contentDescription = "Collapse controls")
+                    }
                 }
             }
 
