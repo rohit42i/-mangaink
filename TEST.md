@@ -34,6 +34,8 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Start a full-page scan from More and verify stage text and progress update in the overlay.
 - [ ] Tap Stop scanning during a scan and verify it cancels without clearing the imported page.
 - [ ] Turn the overlay off during a scan and verify the operation is cancelled.
+- [ ] While screen capture is waiting for ibisPaint, use the Recording screen notification's Stop capture action and verify capture ends.
+- [ ] During captured-frame import, use Stop scanning and verify import cancels and the previous page is not replaced.
 
 ## MediaProjection screen capture
 
@@ -98,15 +100,23 @@ Do not mark a device test as passed until the visible result has been checked on
 
 - [ ] Import a page from Home and create a project in Studio.
 - [ ] Confirm the project appears in the saved project list after leaving and reopening Studio.
+- [ ] Rename the project and verify the new title persists after reopening.
+- [ ] Add a second imported page, rename it, duplicate it, reorder the pages and switch between them.
+- [ ] Delete a non-final page and verify the remaining pages and page order are preserved.
+- [ ] Verify the app refuses to delete the last remaining page.
 - [ ] Add at least two panel frames and verify they remain aligned to the page.
 - [ ] Add a dotted screentone area and verify the preview and exported result.
 - [ ] Add a grayscale gradient and verify the preview and exported result.
 - [ ] Add speed lines and verify the preview and exported result.
-- [ ] Add a dialogue bubble, edit its text, save and reopen the project.
-- [ ] Add a sound effect, edit its text, save and reopen the project.
+- [ ] Add a dialogue bubble, edit its text, wrap long dialogue into multiple lines, change text size and move its tail left/right.
+- [ ] Rotate a bubble and verify it looks the same in the preview and PNG export.
+- [ ] Add a dialogue bubble, save and reopen the project.
+- [ ] Add a sound effect, edit its text, change text size and rotate it; save and reopen the project.
+- [ ] Adjust tone and speed-line density and verify the preview and export match.
 - [ ] Undo the most recent element and verify it is removed.
 - [ ] Export the finished page as PNG using Android Save As.
 - [ ] Open the saved PNG in an image viewer and verify the source page and added elements are present.
+- [ ] Export the full project as CBZ, open it with a CBZ-compatible reader and verify every page appears in the correct order.
 - [ ] Delete a test project and verify it disappears from the project list.
 
 ## Results
