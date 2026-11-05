@@ -430,8 +430,9 @@ class StudioProjectStore(context: Context) {
             strokeWidth = max(2f, min(rect.width(), rect.height()) * 0.018f)
         }
         val radius = min(rect.width(), rect.height()) * 0.22f
+        val canvasBottom = (canvas.height.toFloat() - 2f).coerceAtLeast(rect.bottom)
         val tailTipY = (rect.bottom + min(rect.height() * 0.16f, 24f))
-            .coerceAtMost((canvas.height - 2).coerceAtLeast(rect.bottom).toFloat())
+            .coerceAtMost(canvasBottom)
         val tail = Path().apply {
             moveTo(rect.centerX() - radius * 0.42f, rect.bottom - stroke.strokeWidth)
             lineTo(rect.centerX(), tailTipY)
