@@ -47,6 +47,9 @@ class SessionController(context: Context) {
     private var pendingResumePaths: List<List<GesturePoint>>? = null
     private var pendingResumeOffset = 0
     private var lastMappedTracePaths: List<List<GesturePoint>>? = null
+    private var calibrationBackupAvailable = false
+    private var calibrationBeforeEdit: PageCalibration? = null
+    private var testGestureBeforeEdit = false
 
     fun setScreenCaptureState(active: Boolean, reason: String? = null) {
         mutableState.update {
@@ -80,6 +83,9 @@ class SessionController(context: Context) {
     }
 
     fun importPage(uri: Uri) {
+        calibrationBackupAvailable = false
+        calibrationBeforeEdit = null
+        testGestureBeforeEdit = false
         lastMappedTracePaths = null
         pendingResumePaths = null
         pendingResumeOffset = 0
@@ -363,9 +369,6 @@ class SessionController(context: Context) {
     }
 
     fun scanPage() {
-        lastMappedTracePaths = null
-        pendingResumePaths = null
-        pendingResumeOffset = 0
         val snapshot = mutableState.value
         val bitmap = snapshot.sourceBitmap
         if (bitmap == null || bitmap.isRecycled) {
@@ -376,7 +379,20 @@ class SessionController(context: Context) {
             mutableState.update { it.copy(isError = true, scanStatus = "Stop tracing before scanning another page.") }
             return
         }
+        if (snapshot.calibrating || snapshot.captureInProgress) {
+            mutableState.update {
+                it.copy(
+                    isError = true,
+                    scanStatus = "Finish calibration or screen capture before scanning.",
+                    message = "Scanning is unavailable while calibration or screen capture is active."
+                )
+            }
+            return
+        }
         if (snapshot.scanInProgress || scanJob?.isActive == true) return
+        lastMappedTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
 
         val left = floor(snapshot.selectedLeft * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
         val top = floor(snapshot.selectedTop * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
@@ -571,6 +587,17 @@ class SessionController(context: Context) {
     }
 
     fun scanFullPage() {
+        val snapshot = mutableState.value
+        if (snapshot.running || snapshot.scanInProgress || snapshot.captureInProgress || snapshot.calibrating) {
+            mutableState.update {
+                it.copy(
+                    isError = true,
+                    scanStatus = "Finish the current operation before starting a full-page scan.",
+                    message = "Full-page scanning is unavailable while another operation is active."
+                )
+            }
+            return
+        }
         mutableState.update {
             it.copy(
                 selectedLeft = 0f,
@@ -584,6 +611,9 @@ class SessionController(context: Context) {
     }
 
     fun clearPage() {
+        calibrationBackupAvailable = false
+        calibrationBeforeEdit = null
+        testGestureBeforeEdit = false
         lastMappedTracePaths = null
         if (mutableState.value.running) stop()
         scanJob?.cancel()
@@ -676,7 +706,17 @@ class SessionController(context: Context) {
             }
             return
         }
-        if (snapshot.running) return
+        if (snapshot.calibrating) return
+        if (snapshot.running || snapshot.scanInProgress || snapshot.captureInProgress) {
+            mutableState.update {
+                it.copy(isError = true, message = "Stop tracing, scanning, and screen capture before calibrating.")
+            }
+            return
+        }
+
+        calibrationBeforeEdit = snapshot.calibration
+        testGestureBeforeEdit = snapshot.testGestureVerified
+        calibrationBackupAvailable = true
 
         val display = Point()
         val manager = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -736,6 +776,9 @@ class SessionController(context: Context) {
             Logger.warning("Calibration rejected: invalid page quadrilateral")
             return false
         }
+        calibrationBackupAvailable = false
+        calibrationBeforeEdit = null
+        testGestureBeforeEdit = false
         mutableState.update {
             it.copy(
                 calibration = calibration,
@@ -750,11 +793,25 @@ class SessionController(context: Context) {
     }
 
     fun cancelCalibration() {
-        mutableState.update {
-            it.copy(
+        val restorePrevious = calibrationBackupAvailable
+        val previousCalibration = calibrationBeforeEdit
+        val previousTestResult = testGestureBeforeEdit
+        calibrationBackupAvailable = false
+        calibrationBeforeEdit = null
+        testGestureBeforeEdit = false
+        mutableState.update { current ->
+            val restoredCalibration = if (restorePrevious) previousCalibration else current.calibration
+            val restoredTestResult = if (restorePrevious) previousTestResult else current.testGestureVerified
+            current.copy(
                 calibrating = false,
                 calibrationCorners = emptyList(),
-                message = if (it.calibration == null) "Calibration cancelled." else "Previous canvas alignment retained."
+                calibration = restoredCalibration,
+                testGestureVerified = restoredTestResult,
+                message = if (restorePrevious && restoredCalibration != null) {
+                    "Calibration cancelled. Previous canvas alignment restored."
+                } else {
+                    "Calibration cancelled."
+                }
             )
         }
     }
