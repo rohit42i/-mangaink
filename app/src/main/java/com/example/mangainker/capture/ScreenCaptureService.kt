@@ -19,7 +19,6 @@ import android.os.Handler
 import android.os.Looper
 import android.os.HandlerThread
 import android.os.IBinder
-import android.view.WindowManager
 import com.example.mangainker.MangaInkerApp
 import com.example.mangainker.core.Logger
 
@@ -34,12 +33,14 @@ class ScreenCaptureService : Service() {
     private var worker: HandlerThread? = null
     private var seenFrames = 0
     private var completed = false
+    private var stopReason: String? = null
     private val mainHandler = Handler(Looper.getMainLooper())
     private val timeoutTask = Runnable {
         if (!completed) {
+            stopReason = "ibisPaint was not detected within 20 seconds. Open ibisPaint and try again."
             (application as MangaInkerApp).sessionController.setScreenCaptureState(
                 false,
-                "ibisPaint was not detected within 20 seconds. Open ibisPaint and try again."
+                stopReason
             )
             stopSelf()
         }
@@ -128,6 +129,8 @@ class ScreenCaptureService : Service() {
         } catch (error: Exception) {
             val reason = "Unable to start screen capture: ${error.message ?: error.javaClass.simpleName}"
             (application as MangaInkerApp).sessionController.setScreenCaptureState(false, reason)
+            stopReason = reason
+            (application as MangaInkerApp).sessionController.setScreenCaptureState(false, reason)
             Logger.error(reason)
             stopSelf()
         }
@@ -165,7 +168,7 @@ class ScreenCaptureService : Service() {
         if (!completed) {
             (application as? MangaInkerApp)?.sessionController?.setScreenCaptureState(
                 false,
-                "Screen capture stopped before an ibisPaint frame was captured."
+                stopReason ?: "Screen capture stopped before an ibisPaint frame was captured."
             )
         } else {
             (application as? MangaInkerApp)?.sessionController?.setScreenCaptureState(false)
