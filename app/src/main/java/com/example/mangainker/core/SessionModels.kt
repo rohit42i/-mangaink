@@ -53,6 +53,7 @@ data class SessionState(
     val completedPaths: Int = 0,
     val totalPaths: Int = 0,
     val failedPaths: Int = 0,
+    val resumeAvailable: Boolean = false,
     val progress: Float = 0f
 )
 
