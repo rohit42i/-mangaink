@@ -22,6 +22,7 @@ data class SessionState(
     val sourceName: String = "",
     val pageWidth: Int = 0,
     val pageHeight: Int = 0,
+    val captureInProgress: Boolean = false,
     val scanInProgress: Boolean = false,
     val scanProgress: Float = 0f,
     val scanStatus: String = "Choose a complete outlined page.",
