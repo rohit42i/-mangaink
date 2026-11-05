@@ -352,7 +352,6 @@ class FloatingPanelService : Service() {
         panelParams.y = position.y
         panelSnapEdge = -1
         panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
-        persistPanelPosition()
     }
 
     private fun snapPanel() {
