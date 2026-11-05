@@ -220,7 +220,7 @@ private fun HomeScreen(
     onShowFloatingPanel: () -> Unit,
     onOpenIbisPaint: () -> Unit
 ) {
-    val setupComplete = overlayGranted && accessibilityGranted
+    val setupComplete = overlayGranted && accessibilityGranted && batteryExempt
     Column(
         modifier = modifier.fillMaxSize()
             .verticalScroll(rememberScrollState())
