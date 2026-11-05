@@ -33,7 +33,7 @@ object BitmapTools {
             ?: throw IllegalArgumentException("The image could not be decoded.")
     }
 
-    fun grayscale(bitmap: Bitmap): ByteArray {
+    fun grayscale(bitmap: Bitmap, cancellationCheck: () -> Unit = {}): ByteArray {
         val width = bitmap.width
         val height = bitmap.height
         val pixels = IntArray(width * height)
@@ -41,6 +41,7 @@ object BitmapTools {
         val output = ByteArray(pixels.size)
 
         for (i in pixels.indices) {
+            if (i and 8191 == 0) cancellationCheck()
             val pixel = pixels[i]
             val alpha = (pixel ushr 24) and 0xff
             val red = (pixel shr 16) and 0xff
