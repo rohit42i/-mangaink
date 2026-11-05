@@ -18,20 +18,20 @@ Gestures are finger-style touch input, not stylus input. Set brush size in ibisP
 
 ## Floating panel
 
-The compact bubble can be dragged and snapped to the screen edge. Expand it for Test/Start, Pause/Resume, immediate Stop, and More. Turning the overlay off also stops an active trace or scan so work cannot continue invisibly without controls. More includes Select scan area, Scan selected area, Scan full page, Stop scanning, Calibrate page corners, and Clear page session. During a scan, the panel shows the current processing stage and progress. Stop scanning cancels the active import/scan without clearing the already loaded page. Minimize collapses the panel without ending the session. The running border and current path progress remain visible. Holding volume-down for about 1.5 seconds is an extra stop action.
+The compact bubble can be dragged and snapped to the screen edge. Expand it for Test/Start, Pause/Resume, immediate Stop, and More. Turning the overlay off also stops an active trace or scan so work cannot continue invisibly without controls. More includes Select scan area, Scan selected area, Scan full page, Stop scanning/import, Calibrate page corners, and Clear page session. The persistent Recording screen notification also provides a Stop capture action while MediaProjection is active. During a scan, the panel shows the current processing stage and progress. Stop scanning cancels the active import/scan without clearing the already loaded page. Minimize collapses the panel without ending the session. The running border and current path progress remain visible. Holding volume-down for about 1.5 seconds is an extra stop action.
 
 The overlay runs as a user-started foreground service with a persistent notification. If ibisPaint leaves the foreground, tracing stops for safety. If Accessibility disconnects during a page trace, Manga Inker pauses, remembers the last fully completed path, and resumes from the next path after the service is re-enabled and ibisPaint is foreground again. An interrupted test stroke must be run again.
 
 ## Comic Studio
 
-1. Import a page from Home.
-2. Open **Studio** and create a local project from the imported page.
-3. Choose **Panel**, **Tone**, **Gradient**, **Speed lines**, **Bubble** or **SFX**, then drag on the page to place that element.
-4. Dialogue and SFX text can be edited in the text dialog. Project changes are saved in the app's private storage.
-5. Return to the project list to reopen or delete saved projects.
-6. Choose **Export finished page as PNG** and select a save location in Android's file picker.
+1. Import a page from Home, then create a local project in Studio.
+2. Add more pages from the currently imported Home page; duplicate, rename, reorder, switch and delete pages. A project always keeps at least one page.
+3. Choose **Select / Edit**, **Panel**, **Tone**, **Gradient**, **Speed lines**, **Bubble** or **SFX**, then drag on the page.
+4. Select an element to move or resize it. The selected-element controls support rotation, layer ordering, dialogue/SFX text sizing, balloon-tail adjustment and tone/speed density.
+5. Use Undo/Redo to move through up to 50 recent element edits. Projects and page data remain in private app storage.
+6. Export the active page as PNG, or export every page in order as a CBZ archive using Android's Save As picker.
 
-The studio currently exports the page bitmap used by the inking workspace (the scanner's processing copy is capped at 1,400 px on its longest side). It does not yet replace a full desktop publishing or multi-layer drawing editor. Advanced multi-page sequencing, panel reordering, richer bubble tails/text wrapping, brush/layer editing, speed lines and gradients remain planned.
+The preview and exported pages use the same rendering code. The original page used by Studio is the page bitmap supplied by the inking workspace; that processing copy is capped at 1,400 px on its longest side. This is not yet a full-resolution desktop publishing or multi-layer painting editor. Brush presets, editable ink layers, richer effect presets and additional balloon styles remain planned.
 
 ## GitHub auto-updates
 
@@ -53,7 +53,7 @@ The token is encrypted with Android Keystore on the device. It is not included i
 - Android reports accepted/completed gestures, not whether ibisPaint visibly rendered a mark. Always check the test stroke.
 - Simulated touch does not reproduce stylus pressure or tilt. ibisPaint uses the selected brush's touch behaviour.
 - This is classical image processing, not AI. Dense cross-hatching, faint pencil, textured paper and intersecting outlines can create extra or missing paths. Review the preview.
-- The scanner caps the longest image side at 1,400 px to manage memory; fine details may be lost.
+- The scanner caps the longest image side at 1,400 px to manage memory; fine details may be lost. The decoder now retains the highest practical source resolution before this final resize, but the resulting page/export is still limited to the processing copy.
 - Calibration must match the same ibisPaint page, zoom, rotation and position as the imported page. Recalibrate after changing the canvas.
 - Accessibility is configured with `canPerformGestures=true` and `canRetrieveWindowContent=false`. The app does not inspect ibisPaint's canvas; the four corners are set manually.
 - An Android gesture already accepted can finish for up to 500 ms after Stop. No later segments are sent.
