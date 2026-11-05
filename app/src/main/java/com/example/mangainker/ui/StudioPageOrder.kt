@@ -21,7 +21,7 @@ internal object StudioPageOrder {
 
     fun activeAfterRemoval(ids: List<String>, removedPageId: String, activePageId: String?): String {
         val remaining = remove(ids, removedPageId)
-        if (activePageId != removedPageId && activePageId in remaining) return activePageId!!
+        if (activePageId != null && activePageId != removedPageId && activePageId in remaining) return activePageId
         val removedIndex = ids.indexOf(removedPageId)
         return remaining[(removedIndex - 1).coerceAtLeast(0).coerceAtMost(remaining.lastIndex)]
     }
