@@ -163,6 +163,7 @@ class SessionController(context: Context) {
             var source = captured
             var working: android.graphics.Bitmap? = null
             var detectionBitmap: android.graphics.Bitmap? = null
+            var candidateBitmap: android.graphics.Bitmap? = null
             try {
                 // Detect the canvas on a reduced copy to keep capture processing memory bounded.
                 val detectionScale = minOf(1f, 1000f / maxOf(captured.width, captured.height))
@@ -227,6 +228,7 @@ class SessionController(context: Context) {
                         true
                     ).also { if (it !== source && !source.isRecycled) source.recycle() }
                 } else source
+                candidateBitmap = bitmap
                 val previous = mutableState.value.sourceBitmap
                 mutableState.update {
                     it.copy(
@@ -269,10 +271,12 @@ class SessionController(context: Context) {
                     )
                 }
                 if (previous != null && previous !== bitmap && !previous.isRecycled) previous.recycle()
+                candidateBitmap = null
                 Logger.info("Screen frame imported locally size=" + bitmap.width + "x" + bitmap.height)
                 if (pageBounds != null) scanFullPage()
             } catch (error: Exception) {
                 detectionBitmap?.takeIf { it !== captured && !it.isRecycled }?.recycle()
+                candidateBitmap?.takeIf { it !== mutableState.value.sourceBitmap && !it.isRecycled }?.recycle()
                 val recycleTarget = working ?: captured
                 if (!recycleTarget.isRecycled && mutableState.value.sourceBitmap !== recycleTarget) {
                     recycleTarget.recycle()
