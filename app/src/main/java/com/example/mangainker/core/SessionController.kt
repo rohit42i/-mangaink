@@ -509,6 +509,7 @@ class SessionController(context: Context) {
     }
 
     fun clearPage() {
+        lastMappedTracePaths = null
         if (mutableState.value.running) stop()
         scanJob?.cancel()
         importJob?.cancel()
@@ -796,6 +797,35 @@ class SessionController(context: Context) {
                 isError = !verified
             )
         }
+    }
+
+    fun retryTraceFromFailedPath() {
+        val paths = lastMappedTracePaths
+        val snapshot = mutableState.value
+        if (paths.isNullOrEmpty() || snapshot.failedPaths <= 0) {
+            mutableState.update { it.copy(isError = true, message = "There is no failed trace path to retry.") }
+            return
+        }
+        if (!snapshot.serviceConnected || !snapshot.ibisPaintForeground) {
+            mutableState.update { it.copy(isError = true, message = "Reconnect Accessibility and bring ibisPaint to the foreground before retrying.") }
+            return
+        }
+        if (!snapshot.testGestureVerified || snapshot.calibration == null) {
+            mutableState.update { it.copy(isError = true, message = "Run the calibration test again before retrying paths.") }
+            return
+        }
+        val firstUnfinished = snapshot.pathLog.firstOrNull {
+            it.status == "failed" || it.status == "skipped"
+        }?.pathNumber ?: (snapshot.completedPaths + 1)
+        val offset = (firstUnfinished - 1).coerceIn(0, paths.size)
+        if (offset >= paths.size) return
+        Logger.info("Retrying trace from failedPath=" + firstUnfinished)
+        startPlayback(
+            paths = paths.drop(offset),
+            isTest = false,
+            completedOffset = offset,
+            allPaths = paths
+        )
     }
 
     private fun startTest() {
