@@ -91,7 +91,9 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 7. Export: high-resolution PNG page export, consistent page dimensions, and project/page naming.
 8. Usability: tooltips, shortcuts/gestures where Android permits, onboarding, settings, and diagnostics.
 
-**Current evidence:** these broader studio functions were discussed as product goals, but the current verified source is primarily an inking/gesture utility. Do not mark the studio roadmap complete until each tool is implemented and tested.
+**Implemented in this branch:** private local project create/open/delete; single-page project storage; drag-to-create panel frames; dotted screentone regions; editable dialogue bubbles and SFX text; PNG composition and Android Save As export. Physical export and reopen tests are still pending.
+
+**Still outstanding:** multi-page sequencing and reordering within a single project, duplicate pages, panel resizing/reordering after creation, richer balloon tails and text wrapping, brush presets, editable ink layers, undo/redo history beyond the most recent added element, gradients, speed lines, hatching presets and texture libraries. Do not mark the complete studio roadmap finished until those tools are implemented and tested.
 
 ## G. GitHub updates and release
 
@@ -133,6 +135,7 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 - Made the floating Stop action immediate rather than putting a confirmation dialog in front of the stop gate.
 - Turning off the floating overlay now also cancels active scanning and tracing.
 - Added regression coverage for a seven-panel page and for cancellation during outline extraction.
+- Added a local Comic Studio tab with project create/open/delete, panel and screentone placement, editable dialogue/SFX elements, and PNG export.
 - Restricted GitHub Contents write permission to the main-only release publishing job; ordinary verification builds use read-only repository permission.
 - Restored the existing Android application ID `com.rohit.mangainker` and aligned the release update manifest.
 
