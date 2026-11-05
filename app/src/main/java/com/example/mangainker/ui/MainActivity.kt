@@ -104,6 +104,11 @@ class MainActivity : ComponentActivity() {
 
 
     private fun beginScreenCapture() {
+        val session = controller.state.value
+        if (session.running || session.scanInProgress || session.captureInProgress) {
+            Toast.makeText(this, "Stop the current scan or trace before starting a screen capture.", Toast.LENGTH_LONG).show()
+            return
+        }
         if (!PermissionChecks.accessibilityGranted(this) || !controller.state.value.serviceConnected) {
             Toast.makeText(this, "Enable Manga Inker Accessibility first. It detects when ibisPaint is visible.", Toast.LENGTH_LONG).show()
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
