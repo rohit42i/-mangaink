@@ -156,6 +156,8 @@ fun FloatingPanelContent(
                             DropdownMenuItem(
                                 text = { Text("Calibrate page corners") },
                                 leadingIcon = { Icon(Icons.Outlined.CropFree, contentDescription = null) },
+                                enabled = state.paths.isNotEmpty() && !state.running && !state.scanInProgress &&
+                                    !state.captureInProgress && !state.calibrating,
                                 onClick = {
                                     moreExpanded = false
                                     controller.beginCalibration()
@@ -172,7 +174,7 @@ fun FloatingPanelContent(
                             )
                             DropdownMenuItem(
                                 text = { Text("Select scan area") },
-                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running,
+                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running && !state.captureInProgress && !state.calibrating,
                                 onClick = {
                                     moreExpanded = false
                                     expanded = false
@@ -183,6 +185,7 @@ fun FloatingPanelContent(
                             DropdownMenuItem(
                                 text = { Text("Scan selected area") },
                                 enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running &&
+                                    !state.captureInProgress && !state.calibrating &&
                                     (state.selectedLeft > 0f || state.selectedTop > 0f ||
                                         state.selectedRight < 1f || state.selectedBottom < 1f),
                                 onClick = {
@@ -192,7 +195,7 @@ fun FloatingPanelContent(
                             )
                             DropdownMenuItem(
                                 text = { Text("Scan outline") },
-                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running,
+                                enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running && !state.captureInProgress && !state.calibrating,
                                 onClick = {
                                     moreExpanded = false
                                     controller.scanFullPage()
