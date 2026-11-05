@@ -410,14 +410,14 @@ class FloatingPanelService : Service() {
 
     override fun onDestroy() {
         if (::controller.isInitialized) {
-            persistPanelPosition()
+            if (this::panelParams.isInitialized) persistPanelPosition()
             if (controller.state.value.running) {
                 controller.dispatch(SessionCommand.Stop)
             }
             if (controller.state.value.scanInProgress) {
                 controller.cancelScan()
             }
-            controller.cancelCalibration()
+            if (controller.state.value.calibrating) controller.cancelCalibration()
             if (controller.state.value.captureInProgress) {
                 stopService(Intent(this, ScreenCaptureService::class.java))
             }
