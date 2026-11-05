@@ -162,10 +162,39 @@ class SessionController(context: Context) {
         importJob = scope.launch(Dispatchers.Default) {
             var source = captured
             var working: android.graphics.Bitmap? = null
+            var detectionBitmap: android.graphics.Bitmap? = null
             try {
-                val gray = BitmapTools.grayscale(captured) {}
-                val pageBounds = PageBoundsDetector.detect(gray, captured.width, captured.height)
-                gray.fill(0)
+                // Detect the canvas on a reduced copy to keep capture processing memory bounded.
+                val detectionScale = minOf(1f, 1000f / maxOf(captured.width, captured.height))
+                detectionBitmap = if (detectionScale < 1f) {
+                    android.graphics.Bitmap.createScaledBitmap(
+                        captured,
+                        (captured.width * detectionScale).toInt().coerceAtLeast(1),
+                        (captured.height * detectionScale).toInt().coerceAtLeast(1),
+                        true
+                    )
+                } else captured
+                val gray = BitmapTools.grayscale(detectionBitmap!!)
+                val smallBounds = try {
+                    PageBoundsDetector.detect(gray, detectionBitmap!!.width, detectionBitmap!!.height)
+                } finally {
+                    gray.fill(0)
+                }
+                val scaleX = captured.width.toFloat() / detectionBitmap!!.width
+                val scaleY = captured.height.toFloat() / detectionBitmap!!.height
+                val pageBounds = smallBounds?.let {
+                    android.graphics.Rect(
+                        floor(it.left * scaleX).toInt().coerceIn(0, captured.width - 1),
+                        floor(it.top * scaleY).toInt().coerceIn(0, captured.height - 1),
+                        ceil(it.right * scaleX).toInt().coerceIn(1, captured.width),
+                        ceil(it.bottom * scaleY).toInt().coerceIn(1, captured.height)
+                    )
+                }
+                if (detectionBitmap !== captured && detectionBitmap?.isRecycled == false) {
+                    detectionBitmap?.recycle()
+                }
+                detectionBitmap = null
+
                 if (pageBounds != null &&
                     pageBounds.width() >= captured.width * 0.30f &&
                     pageBounds.height() >= captured.height * 0.30f
@@ -243,6 +272,7 @@ class SessionController(context: Context) {
                 Logger.info("Screen frame imported locally size=" + bitmap.width + "x" + bitmap.height)
                 if (pageBounds != null) scanFullPage()
             } catch (error: Exception) {
+                detectionBitmap?.takeIf { it !== captured && !it.isRecycled }?.recycle()
                 val recycleTarget = working ?: captured
                 if (!recycleTarget.isRecycled && mutableState.value.sourceBitmap !== recycleTarget) {
                     recycleTarget.recycle()
