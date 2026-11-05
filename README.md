@@ -4,19 +4,23 @@ Manga Inker is an Android tool that scans a complete manga/comic page, extracts 
 
 ## Page workflow
 
-1. **Import:** choose a PNG, JPEG or WebP using Android's document picker.
-2. **Scan full page:** the app downsamples the longest side to at most 1,400 px, converts it to grayscale, applies Otsu thresholding, removes small isolated components, skeletonizes the outlines, and traces open lines, branches and loops.
-3. **Select area (optional):** tap Select scan area and drag a rectangle over the page preview. Scan selected area processes only that crop. Full page resets the selection.
-4. **Review:** the blue centre-line paths appear over the source image. Adjust threshold, speck removal, smoothing and detail preservation, then scan again.
-5. **Calibrate:** open the floating controls above ibisPaint and drag markers 1–4 to the visible canvas corners. Four-corner projective mapping accounts for perspective.
-6. **Test:** run one alignment stroke, check that ibisPaint visibly rendered it, undo it in ibisPaint, then confirm the result in Manga Inker.
-7. **Trace:** the full page or selected crop can then be traced with the selected ibisPaint brush. Pause/resume works between accepted gesture segments. Stop cancels all queued segments and closes the dispatch gate.
+1. **Capture ibisPaint:** from Home, tap **Capture ibisPaint screen** and approve Android's screen-capture prompt. Approval is required for every capture session; Manga Inker cannot silently read another app.
+2. **Open the artwork:** after approval, Manga Inker starts ibisPaint X. A persistent **Recording screen** notification stays visible while the capture service is active. The app waits until Accessibility reports ibisPaint in the foreground, then captures one frame and stops the projection.
+3. **Detect the canvas:** the frame is downsampled for local page-bound detection. A clear large light canvas is cropped automatically. If the page is ambiguous (for example, a dark canvas or a page blended into the app background), Manga Inker keeps the full frame and asks you to select the artwork area manually.
+4. **Import alternative:** choose a PNG, JPEG or WebP using Android's document picker when you already have a clean page image.
+5. **Scan:** the processing copy is capped at 1,400 px on its longest side, converted to grayscale, thresholded with Otsu, filtered for small components, skeletonized, and traced into open lines, branches and loops.
+6. **Select area:** tap **Select scan area** and drag a rectangle over the page preview. Scan selected area processes only that crop. Full page resets the selection.
+7. **Review:** blue centre-line paths appear over the source image. Adjust threshold, speck removal, smoothing and detail preservation, then scan again.
+8. **Calibrate:** open the floating controls above ibisPaint and drag markers 1–4 to the visible canvas corners. Four-corner projective mapping accounts for perspective.
+9. **Test and trace:** run one alignment stroke, verify that ibisPaint visibly rendered it, undo it in ibisPaint, then confirm the result in Manga Inker. The app traces with the selected ibisPaint brush.
+
+Gestures are finger-style touch input, not stylus input. Set brush size in ibisPaint before tracing; Accessibility cannot simulate stylus pressure or tilt. Pause takes effect after the active gesture segment. Stop prevents later queued segments from being dispatched.
 
 ## Floating panel
 
 The compact bubble can be dragged and snapped to the screen edge. Expand it for Test/Start, Pause/Resume, immediate Stop, and More. Turning the overlay off also stops an active trace or scan so work cannot continue invisibly without controls. More includes Select scan area, Scan selected area, Scan full page, Stop scanning, Calibrate page corners, and Clear page session. During a scan, the panel shows the current processing stage and progress. Stop scanning cancels the active import/scan without clearing the already loaded page. Minimize collapses the panel without ending the session. The running border and current path progress remain visible. Holding volume-down for about 1.5 seconds is an extra stop action.
 
-The overlay runs as a user-started foreground service with a persistent notification. If ibisPaint leaves the foreground or Accessibility disconnects, the active trace stops rather than retrying blindly.
+The overlay runs as a user-started foreground service with a persistent notification. If ibisPaint leaves the foreground, tracing stops for safety. If Accessibility disconnects during a page trace, Manga Inker pauses, remembers the last fully completed path, and resumes from the next path after the service is re-enabled and ibisPaint is foreground again. An interrupted test stroke must be run again.
 
 ## Comic Studio
 
@@ -60,7 +64,8 @@ The token is encrypted with Android Keystore on the device. It is not included i
 - Artwork import and outline extraction are local. No artwork, screenshots or path geometry are uploaded or written to persistent app storage.
 - Network access is used only for checking and downloading the signed private GitHub app update. The app does not send artwork to GitHub.
 - The app requests overlay access for the floating panel, Accessibility gesture access for tracing, and permission to request APK installation for updates.
-- No broad storage permission or MediaProjection permission is used.
+- Screen capture uses Android MediaProjection and its required foreground-service permission. The user must approve each session. A persistent notification and Android's screen-sharing indicator are shown while it is active. Only one ibisPaint frame is captured per request.
+- Captured frames and imported artwork stay in memory for the session. They are not written to persistent app storage or uploaded. Clearing/replacing the page or ending the app releases the temporary bitmap.
 - Update credentials are encrypted using Android Keystore. Debug events are held in memory and logcat under `MI_GESTURE`.
 
 ## Device test status
