@@ -24,6 +24,8 @@ class MainActivity : ComponentActivity() {
     private val controller by lazy { (application as MangaInkerApp).sessionController }
     private val updateManager by lazy { (application as MangaInkerApp).updateManager }
     private var permissionRefreshKey by mutableIntStateOf(0)
+    private var navigationRequest by mutableIntStateOf(0)
+    private var navigateToSettings by androidx.compose.runtime.mutableStateOf(false)
     private var pendingExportBitmap: Bitmap? = null
 
     private val createPngDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("image/png")) { uri ->
@@ -72,12 +74,15 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        navigateToSettings = intent.getBooleanExtra(EXTRA_NAVIGATE_SETTINGS, false)
         setContent {
             MangaInkerTheme {
                 MangaInkerRoot(
                     controller = controller,
                     updateManager = updateManager,
                     permissionRefreshKey = permissionRefreshKey,
+                    navigationRequest = navigationRequest,
+                    navigateToSettings = navigateToSettings,
                     onPickPage = { openDocument.launch(arrayOf("image/*")) },
                     onCaptureScreen = { beginScreenCapture() },
                     onOpenOverlaySettings = {
@@ -128,6 +133,13 @@ class MainActivity : ComponentActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        navigateToSettings = intent.getBooleanExtra(EXTRA_NAVIGATE_SETTINGS, false)
+        navigationRequest++
+    }
+
     override fun onResume() {
         super.onResume()
         permissionRefreshKey++
@@ -141,4 +153,8 @@ class MainActivity : ComponentActivity() {
         if (launchIntent != null) startActivity(launchIntent)
         else Toast.makeText(this, "Open ibisPaint X manually, then use the floating controls.", Toast.LENGTH_LONG).show()
     }
+    companion object {
+        const val EXTRA_NAVIGATE_SETTINGS = "manga_inker_navigate_settings"
+    }
+
 }
