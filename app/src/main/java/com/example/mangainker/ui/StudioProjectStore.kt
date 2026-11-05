@@ -254,6 +254,34 @@ class StudioProjectStore(context: Context) {
         }
     }
 
+    /** Writes one rendered PNG per project page into a streaming CBZ archive. */
+    fun writeProjectCbz(project: StudioProject, output: java.io.OutputStream) {
+        val pages = pagesFor(project)
+        require(pages.isNotEmpty()) { "This project does not contain any pages." }
+        java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(output)).use { archive ->
+            pages.forEachIndexed { index, metadata ->
+                val loaded = loadPage(project, metadata.id)
+                    ?: throw IllegalStateException("Could not open Page ${index + 1} for export.")
+                val rendered = try {
+                    renderPage(loaded.page, loaded.project)
+                } finally {
+                    if (!loaded.page.isRecycled) loaded.page.recycle()
+                }
+                try {
+                    val name = "Page-" + (index + 1).toString().padStart(3, '0') + ".png"
+                    archive.putNextEntry(java.util.zip.ZipEntry(name))
+                    check(rendered.compress(Bitmap.CompressFormat.PNG, 100, archive)) {
+                        "Could not encode Page ${index + 1}."
+                    }
+                    archive.closeEntry()
+                } finally {
+                    if (!rendered.isRecycled) rendered.recycle()
+                }
+            }
+            archive.finish()
+        }
+    }
+
     private fun pagesFor(project: StudioProject): List<StudioPage> {
         if (project.pages.isNotEmpty()) {
             // The root fields are a compatibility view of the active page.
