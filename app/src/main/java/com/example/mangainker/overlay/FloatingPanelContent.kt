@@ -72,8 +72,8 @@ fun FloatingPanelContent(
     var moreExpanded by remember { mutableStateOf(false) }
     var showStopConfirmation by remember { mutableStateOf(false) }
 
-    LaunchedEffect(expanded, state.running, state.paused, state.calibrating, state.panelAutoCollapseMs) {
-        if (expanded && !state.running && !state.calibrating && state.panelAutoCollapseMs > 0L) {
+    LaunchedEffect(expanded, state.running, state.paused, state.calibrating, state.scanInProgress, state.panelAutoCollapseMs) {
+        if (expanded && !state.running && !state.calibrating && !state.scanInProgress && state.panelAutoCollapseMs > 0L) {
             delay(state.panelAutoCollapseMs)
             expanded = false
         }
@@ -128,6 +128,15 @@ fun FloatingPanelContent(
                                 onClick = {
                                     moreExpanded = false
                                     controller.beginCalibration()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Stop scanning") },
+                                leadingIcon = { Icon(Icons.Outlined.Stop, contentDescription = null) },
+                                enabled = state.scanInProgress,
+                                onClick = {
+                                    moreExpanded = false
+                                    controller.cancelScan()
                                 }
                             )
                             DropdownMenuItem(
@@ -210,6 +219,21 @@ fun FloatingPanelContent(
                         fontSize = 11.sp,
                         maxLines = 3
                     )
+
+                    if (state.scanInProgress) {
+                        LinearProgressIndicator(
+                            progress = state.scanProgress.coerceIn(0f, 1f),
+                            modifier = Modifier.fillMaxWidth(),
+                            color = InkPalette.accent,
+                            trackColor = InkPalette.raised
+                        )
+                        Text(
+                            state.scanStatus,
+                            color = InkPalette.secondaryText,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 2
+                        )
+                    }
 
                     if (state.running && !state.totalPaths.equals(0)) {
                         LinearProgressIndicator(
