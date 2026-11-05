@@ -260,6 +260,15 @@ object OutlineProcessor {
                 current = next
                 points.add(InkPoint((current % width).toFloat(), (current / width).toFloat()))
             }
+            // A degree-two component can be a closed loop. The final edge
+            // back to the start is marked as visited above, so explicitly
+            // append the start point to preserve that closing segment in playback.
+            if (points.size >= 3 && degrees[current].toInt() == 2) {
+                val closesLoop = (0..7).any { d ->
+                    neighbor(current, d, mask, width, height) == start
+                }
+                if (closesLoop) points.add(points.first())
+            }
             return points
         }
 
