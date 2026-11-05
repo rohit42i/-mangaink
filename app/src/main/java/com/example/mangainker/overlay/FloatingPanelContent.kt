@@ -218,6 +218,19 @@ fun FloatingPanelContent(
                         maxLines = 3
                     )
 
+                    if (state.resumeAvailable && !state.serviceConnected) {
+                        Button(
+                            onClick = onOpenMainScreen,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = InkPalette.error,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("Reconnect Accessibility")
+                        }
+                    }
+
                     if (state.scanInProgress) {
                         LinearProgressIndicator(
                             progress = state.scanProgress.coerceIn(0f, 1f),
@@ -322,15 +335,18 @@ fun FloatingPanelContent(
 }
 
 private fun stateDot(state: SessionState): Color = when {
-    state.isError -> InkPalette.accent
-    state.scanInProgress -> InkPalette.accent
+    state.resumeAvailable && !state.serviceConnected -> InkPalette.error
+    state.isError -> InkPalette.error
+    state.captureInProgress || state.scanInProgress -> InkPalette.accent
     state.running && state.paused -> InkPalette.warning
-    state.running -> InkPalette.success
+    state.running -> InkPalette.accent
     state.testGestureVerified -> InkPalette.success
     else -> Color(0xFF77777F)
 }
 
 private fun panelStatus(state: SessionState): String = when {
+    state.resumeAvailable && !state.serviceConnected -> "Reconnect Accessibility"
+    state.captureInProgress -> "Recording screen"
     state.isError -> "Error"
     state.scanInProgress -> "Scanning"
     state.calibrating -> "Calibrating"
