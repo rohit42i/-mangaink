@@ -123,4 +123,16 @@ These are the broader "ultimate manga/comic tool" functions requested, beyond th
 6. Implement the broader comic-studio roadmap in coherent modules.
 7. Verify signed release/update flow and only then merge/release.
 
-Status on this branch: requirements consolidated; implementation and device verification are in progress.
+## Recent implementation changes
+
+- Added an explicit stop action for active image import and full-page/selected-area scans.
+- Added scan cancellation checkpoints to bitmap grayscale conversion, threshold classification, connected-component filtering, skeletonization, graph tracing, simplification and smoothing.
+- Added stage-based and per-path progress reporting to the main page workspace and floating overlay.
+- Made the floating Stop action immediate rather than putting a confirmation dialog in front of the stop gate.
+- Turning off the floating overlay now also cancels active scanning and tracing.
+- Added regression coverage for a seven-panel page and for cancellation during outline extraction.
+- Restricted GitHub Contents write permission to the main-only release publishing job; ordinary verification builds use read-only repository permission.
+
+These are source changes, not proof of device behaviour. The CI job still needs to report green, and the OPPO F29 checklist must be completed physically.
+
+Status on this branch: core page-to-ink implementation improved; comic-studio roadmap and physical device verification remain in progress.
