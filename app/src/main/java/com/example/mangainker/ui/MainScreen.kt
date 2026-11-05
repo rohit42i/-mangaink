@@ -326,7 +326,7 @@ private fun HomeScreen(
                     Text(if (state.sourceBitmap == null) "Choose page image" else "Replace page image")
                 }
 
-                OutlinedButton(onClick = onCaptureScreen, enabled = !state.captureInProgress, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp)) {
+                OutlinedButton(onClick = onCaptureScreen, enabled = !state.captureInProgress && !state.running && !state.scanInProgress, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(9.dp)) {
                     Text(if (state.captureInProgress) "Recording screen…" else "Capture ibisPaint screen")
                 }
                 Text(
