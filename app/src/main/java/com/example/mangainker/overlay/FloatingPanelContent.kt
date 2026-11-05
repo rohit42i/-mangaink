@@ -323,6 +323,7 @@ fun FloatingPanelContent(
 
 private fun stateDot(state: SessionState): Color = when {
     state.isError -> InkPalette.accent
+    state.scanInProgress -> InkPalette.accent
     state.running && state.paused -> InkPalette.warning
     state.running -> InkPalette.success
     state.testGestureVerified -> InkPalette.success
@@ -331,6 +332,7 @@ private fun stateDot(state: SessionState): Color = when {
 
 private fun panelStatus(state: SessionState): String = when {
     state.isError -> "Error"
+    state.scanInProgress -> "Scanning"
     state.calibrating -> "Calibrating"
     state.running && state.paused -> "Paused"
     state.running -> "Tracing"
