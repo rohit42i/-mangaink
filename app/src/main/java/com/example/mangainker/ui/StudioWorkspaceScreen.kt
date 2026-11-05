@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.min
 import kotlin.math.max
+import java.util.UUID
 
 private enum class StudioTool(val label: String, val help: String) {
     SELECT("Select / Edit", "Drag an element to select and move it. Drag its lower-right handle to resize."),
@@ -204,6 +205,30 @@ fun StudioWorkspaceScreen(
         } catch (error: Exception) {
             message = "Page reorder failed: " + (error.message ?: "unknown error")
         }
+    }
+
+    fun updateSelectedElement(change: (StudioElement) -> StudioElement) {
+        val current = project ?: return
+        val id = selectedElementId ?: return
+        val target = current.elements.firstOrNull { it.id == id } ?: return
+        save(current.copy(elements = current.elements.map {
+            if (it.id == target.id) change(it) else it
+        }))
+        message = "Selected element updated."
+    }
+
+    fun moveSelectedLayer(direction: Int) {
+        val current = project ?: return
+        val id = selectedElementId ?: return
+        val elements = current.elements.toMutableList()
+        val index = elements.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val targetIndex = (index + direction).coerceIn(0, elements.lastIndex)
+        if (targetIndex == index) return
+        val selected = elements.removeAt(index)
+        elements.add(targetIndex, selected)
+        save(current.copy(elements = elements))
+        message = if (direction > 0) "Element moved forward." else "Element moved backward."
     }
 
     fun undo() {
@@ -624,6 +649,64 @@ fun StudioWorkspaceScreen(
                             modifier = Modifier.weight(1f)
                         ) { Text("Delete selected") }
                     }
+                    if (selectedElement != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            OutlinedButton(
+                                onClick = { updateSelectedElement { it.copy(rotationDegrees = (it.rotationDegrees - 15f) % 360f) } },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Rotate −15°") }
+                            OutlinedButton(
+                                onClick = { updateSelectedElement { it.copy(rotationDegrees = (it.rotationDegrees + 15f) % 360f) } },
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Rotate +15°") }
+                            OutlinedButton(
+                                onClick = { moveSelectedLayer(-1) },
+                                enabled = currentProject.elements.indexOfFirst { it.id == selectedElement.id } > 0,
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Back") }
+                            OutlinedButton(
+                                onClick = { moveSelectedLayer(1) },
+                                enabled = currentProject.elements.indexOfFirst { it.id == selectedElement.id } in 0 until currentProject.elements.lastIndex,
+                                modifier = Modifier.weight(1f)
+                            ) { Text("Front") }
+                        }
+                        if (selectedElement.type == "bubble" || selectedElement.type == "sfx") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedButton(
+                                    onClick = { updateSelectedElement { it.copy(textScale = (it.textScale - 0.1f).coerceAtLeast(0.5f)) } },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Text −") }
+                                OutlinedButton(
+                                    onClick = { updateSelectedElement { it.copy(textScale = (it.textScale + 0.1f).coerceAtMost(2f)) } },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Text +") }
+                            }
+                        }
+                        if (selectedElement.type == "bubble") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedButton(
+                                    onClick = { updateSelectedElement { it.copy(tailOffsetX = (it.tailOffsetX - 0.08f).coerceAtLeast(-0.45f)) } },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Tail left") }
+                                OutlinedButton(
+                                    onClick = { updateSelectedElement { it.copy(tailOffsetX = (it.tailOffsetX + 0.08f).coerceAtMost(0.45f)) } },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Tail right") }
+                            }
+                        }
+                        if (selectedElement.type == "tone" || selectedElement.type == "speed") {
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                OutlinedButton(
+                                    onClick = { updateSelectedElement { it.copy(effectDensity = (it.effectDensity - 0.1f).coerceAtLeast(0.35f)) } },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Density −") }
+                                OutlinedButton(
+                                    onClick = { updateSelectedElement { it.copy(effectDensity = (it.effectDensity + 0.1f).coerceAtMost(2.5f)) } },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Density +") }
+                            }
+                        }
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         OutlinedButton(
                             onClick = {
@@ -633,10 +716,12 @@ fun StudioWorkspaceScreen(
                                     val elementHeight = target.bottom - target.top
                                     val left = (target.left + 0.02f).coerceAtMost(1f - elementWidth)
                                     val top = (target.top + 0.02f).coerceAtMost(1f - elementHeight)
-                                    val duplicate = StudioElement(
-                                        type = target.type, left = left, top = top,
-                                        right = left + elementWidth, bottom = top + elementHeight,
-                                        text = target.text
+                                    val duplicate = target.copy(
+                                        id = UUID.randomUUID().toString(),
+                                        left = left,
+                                        top = top,
+                                        right = left + elementWidth,
+                                        bottom = top + elementHeight
                                     )
                                     save(currentProject.copy(elements = currentProject.elements + duplicate))
                                     selectedElementId = duplicate.id
