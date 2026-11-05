@@ -107,8 +107,10 @@ class SessionController(context: Context) {
             )
         }
         importJob = scope.launch(Dispatchers.IO) {
+            var decodedBitmap: android.graphics.Bitmap? = null
             try {
                 val bitmap = BitmapTools.decodeForProcessing(appContext.contentResolver, uri)
+                decodedBitmap = bitmap
                 currentCoroutineContext().ensureActive()
                 val oldBitmap = mutableState.value.sourceBitmap
                 mutableState.update {
@@ -142,11 +144,20 @@ class SessionController(context: Context) {
                         message = "Page loaded at " + bitmap.width + " × " + bitmap.height + " pixels."
                     )
                 }
+                // Ownership has transferred to SessionState; cancellation/error cleanup
+                // must not recycle the bitmap now displayed by the workspace.
+                decodedBitmap = null
                 if (oldBitmap != null && oldBitmap !== bitmap && !oldBitmap.isRecycled) oldBitmap.recycle()
                 Logger.info("Page imported locally size=" + bitmap.width + "x" + bitmap.height)
             } catch (cancelled: CancellationException) {
+                decodedBitmap?.takeIf {
+                    it !== mutableState.value.sourceBitmap && !it.isRecycled
+                }?.recycle()
                 throw cancelled
             } catch (error: Exception) {
+                decodedBitmap?.takeIf {
+                    it !== mutableState.value.sourceBitmap && !it.isRecycled
+                }?.recycle()
                 mutableState.update {
                     it.copy(
                         scanInProgress = false,
