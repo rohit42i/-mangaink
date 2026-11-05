@@ -27,6 +27,7 @@ internal object PageBoundsDetector {
     ): PageBounds? {
         if (width < 40 || height < 40 || grayscale.size != width * height) return null
 
+        val significantRegions = ArrayList<LightRegion>()
         val visited = ByteArray(grayscale.size)
         val queue = IntArray(grayscale.size)
         var bestCount = 0
@@ -82,6 +83,18 @@ internal object PageBoundsDetector {
             val fillRatio = tail.toFloat() / boxArea.coerceAtLeast(1L).toFloat()
             val touchesAllEdges = left <= 1 && top <= 1 && right >= width - 2 && bottom >= height - 2
 
+            // A thick panel frame can split one page into several white components.
+            // Remember substantial regions so we can refuse an unsafe single-panel crop.
+            if (!touchesAllEdges &&
+                boxWidth >= width * MIN_REGION_WIDTH_FRACTION &&
+                boxHeight >= height * MIN_REGION_HEIGHT_FRACTION &&
+                boxArea >= screenArea * MIN_REGION_SCREEN_AREA &&
+                aspect in MIN_ASPECT..MAX_ASPECT &&
+                fillRatio >= MIN_FILL_RATIO
+            ) {
+                significantRegions.add(LightRegion(left, top, right, bottom, tail))
+            }
+
             if (!touchesAllEdges &&
                 boxWidth >= width * MIN_WIDTH_FRACTION &&
                 boxHeight >= height * MIN_HEIGHT_FRACTION &&
@@ -98,6 +111,10 @@ internal object PageBoundsDetector {
             }
         }
 
+        // Never auto-crop to just the largest panel when other substantial
+        // page-like regions are disconnected. The import flow keeps the full
+        // screenshot and asks the user to select the complete artwork area.
+        if (significantRegions.size > 1) return null
         if (bestCount == 0) return null
         val padX = max(2, ((bestRight - bestLeft + 1) * EDGE_PADDING).toInt())
         val padY = max(2, ((bestBottom - bestTop + 1) * EDGE_PADDING).toInt())
@@ -109,7 +126,18 @@ internal object PageBoundsDetector {
         )
     }
 
+    private data class LightRegion(
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+        val pixelCount: Int
+    )
+
     private const val LIGHT_THRESHOLD = 222
+    private const val MIN_REGION_WIDTH_FRACTION = 0.20f
+    private const val MIN_REGION_HEIGHT_FRACTION = 0.10f
+    private const val MIN_REGION_SCREEN_AREA = 0.015
     private const val MIN_WIDTH_FRACTION = 0.30f
     private const val MIN_HEIGHT_FRACTION = 0.30f
     private const val MIN_SCREEN_AREA = 0.16
