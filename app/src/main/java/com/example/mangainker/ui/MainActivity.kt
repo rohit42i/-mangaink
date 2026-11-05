@@ -3,6 +3,7 @@ package com.example.mangainker.ui
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -14,6 +15,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import com.example.mangainker.MangaInkerApp
+import com.example.mangainker.capture.ScreenCaptureService
+import com.example.mangainker.permissions.PermissionChecks
 import com.example.mangainker.overlay.FloatingPanelService
 import com.example.mangainker.update.GitHubUpdateManager
 
@@ -48,6 +51,25 @@ class MainActivity : ComponentActivity() {
         uri?.let(controller::importPage)
     }
 
+    private val requestScreenCapture = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val grantData = result.data
+        if (result.resultCode != RESULT_OK || grantData == null) {
+            Toast.makeText(this, "Screen capture was not approved. Nothing was recorded.", Toast.LENGTH_LONG).show()
+            return@registerForActivityResult
+        }
+        stopService(Intent(this, FloatingPanelService::class.java))
+        val captureIntent = Intent(this, ScreenCaptureService::class.java).apply {
+            putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, result.resultCode)
+            putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, grantData)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(captureIntent)
+        else startService(captureIntent)
+        openIbisPaint()
+        Toast.makeText(this, "Recording screen. Manga Inker will capture when ibisPaint is visible.", Toast.LENGTH_LONG).show()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -57,6 +79,7 @@ class MainActivity : ComponentActivity() {
                     updateManager = updateManager,
                     permissionRefreshKey = permissionRefreshKey,
                     onPickPage = { openDocument.launch(arrayOf("image/*")) },
+                    onCaptureScreen = { beginScreenCapture() },
                     onOpenOverlaySettings = {
                         startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + packageName)))
                     },
@@ -74,6 +97,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
+    private fun beginScreenCapture() {
+        if (!PermissionChecks.accessibilityGranted(this) || !controller.state.value.serviceConnected) {
+            Toast.makeText(this, "Enable Manga Inker Accessibility first. It detects when ibisPaint is visible.", Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            return
+        }
+        val manager = getSystemService(MediaProjectionManager::class.java)
+        requestScreenCapture.launch(manager.createScreenCaptureIntent())
+    }
 
     private fun exportPng(bitmap: Bitmap) {
         if (bitmap.isRecycled) {
