@@ -698,6 +698,33 @@ private fun TraceLogScreen(
                         style = MaterialTheme.typography.bodySmall
                     )
                 }
+                if (state.pathLog.isNotEmpty()) {
+                    Text("Paths", style = MaterialTheme.typography.titleMedium)
+                    state.pathLog.take(120).forEach { entry ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(9.dp)
+                        ) {
+                            Box(
+                                Modifier.size(8.dp).clip(CircleShape).background(
+                                    when (entry.status) {
+                                        "done" -> InkPalette.success
+                                        "failed" -> InkPalette.error
+                                        "skipped" -> InkPalette.warning
+                                        else -> InkPalette.outline
+                                    }
+                                )
+                            )
+                            Column(Modifier.weight(1f)) {
+                                Text("Path " + entry.pathNumber + " · " + entry.status.uppercase(), style = MaterialTheme.typography.bodySmall)
+                                if (entry.detail.isNotBlank()) {
+                                    Text(entry.detail, color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
 
