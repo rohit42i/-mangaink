@@ -18,6 +18,8 @@ import com.example.mangainker.MangaInkerApp
 import com.example.mangainker.capture.ScreenCaptureService
 import com.example.mangainker.permissions.PermissionChecks
 import com.example.mangainker.overlay.FloatingPanelService
+import com.example.mangainker.overlay.AssistantEnableResult
+import com.example.mangainker.overlay.OverlayActivation
 import com.example.mangainker.update.GitHubUpdateManager
 import com.example.mangainker.ui.StudioProject
 import com.example.mangainker.ui.StudioProjectStore
@@ -124,8 +126,8 @@ class MainActivity : ComponentActivity() {
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(captureIntent)
         else startService(captureIntent)
-        // Keep the floating scan handle available above ibisPaint for the whole session.
-        showFloatingPanel()
+        // Restore controls only when the user has left the assistant enabled.
+        OverlayActivation.restoreIfRequested(this)
         openIbisPaint()
         Toast.makeText(this, "Recording screen. Manga Inker will capture when ibisPaint is visible.", Toast.LENGTH_LONG).show()
     }
@@ -153,6 +155,7 @@ class MainActivity : ComponentActivity() {
                         startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + packageName)))
                     },
                     onShowFloatingPanel = { showFloatingPanel() },
+                    onToggleAssistant = { enabled -> setAssistantEnabled(enabled) },
                     onOpenIbisPaint = { openIbisPaint() },
                     onExportImage = { bitmap -> exportPng(bitmap) },
                     onExportCbz = { store, project -> exportCbz(store, project) }
@@ -164,8 +167,8 @@ class MainActivity : ComponentActivity() {
 
     private fun beginScreenCapture() {
         val session = controller.state.value
-        if (session.running || session.scanInProgress || session.captureInProgress) {
-            Toast.makeText(this, "Stop the current scan or trace before starting a screen capture.", Toast.LENGTH_LONG).show()
+        if (session.running || session.scanInProgress || session.captureInProgress || session.calibrating) {
+            Toast.makeText(this, "Stop scanning, tracing, or calibration before starting a screen capture.", Toast.LENGTH_LONG).show()
             return
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
@@ -203,13 +206,41 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showFloatingPanel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
-            Toast.makeText(this, "Allow display over other apps first.", Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + packageName)))
+        setAssistantEnabled(true)
+    }
+
+    private fun setAssistantEnabled(enabled: Boolean) {
+        if (!enabled) {
+            OverlayActivation.disable(this)
+            permissionRefreshKey++
             return
         }
-        val intent = Intent(this, FloatingPanelService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+
+        when (OverlayActivation.enable(this)) {
+            AssistantEnableResult.NEEDS_OVERLAY_PERMISSION -> {
+                Toast.makeText(
+                    this,
+                    "Allow Manga Inker to display over other apps, then return here.",
+                    Toast.LENGTH_LONG
+                ).show()
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + packageName)
+                    )
+                )
+            }
+            AssistantEnableResult.START_FAILED -> {
+                Toast.makeText(
+                    this,
+                    OverlayActivation.state.value.error ?: "Manga Inker could not start its floating controls.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            AssistantEnableResult.START_REQUESTED,
+            AssistantEnableResult.ALREADY_RUNNING -> Unit
+        }
+        permissionRefreshKey++
     }
 
     override fun onDestroy() {
@@ -230,6 +261,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         permissionRefreshKey++
+        OverlayActivation.restoreIfRequested(this)
     }
 
     private fun openIbisPaint() {
