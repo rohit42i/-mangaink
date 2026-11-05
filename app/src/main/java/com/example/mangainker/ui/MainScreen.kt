@@ -72,7 +72,7 @@ import com.example.mangainker.permissions.PermissionChecks
 import com.example.mangainker.update.GitHubUpdateManager
 import com.example.mangainker.update.UpdateUiState
 
-private enum class AppTab { Home, Studio, Settings }
+private enum class AppTab { Home, Studio, TraceLog, Settings }
 
 @Composable
 fun MangaInkerRoot(
@@ -116,6 +116,12 @@ fun MangaInkerRoot(
                     label = { Text("Studio") }
                 )
                 NavigationBarItem(
+                    selected = selectedTab == AppTab.TraceLog,
+                    onClick = { selectedTab = AppTab.TraceLog },
+                    icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                    label = { Text("Trace log") }
+                )
+                NavigationBarItem(
                     selected = selectedTab == AppTab.Settings,
                     onClick = { selectedTab = AppTab.Settings },
                     icon = { Icon(Icons.Outlined.Settings, contentDescription = null) },
@@ -147,6 +153,12 @@ fun MangaInkerRoot(
                 importedPage = state.sourceBitmap,
                 store = studioStore,
                 onExportImage = onExportImage
+            )
+            AppTab.TraceLog -> TraceLogScreen(
+                modifier = Modifier.padding(padding),
+                state = state,
+                logs = logs,
+                controller = controller
             )
             AppTab.Settings -> SettingsScreen(
                 modifier = Modifier.padding(padding),
@@ -369,6 +381,15 @@ private fun HomeScreen(
                     color = if (state.isError) InkPalette.warning else InkPalette.secondaryText,
                     style = MaterialTheme.typography.bodySmall
                 )
+                if (state.isError && state.sourceBitmap != null && !state.running && !state.scanInProgress) {
+                    OutlinedButton(
+                        onClick = controller::scanPage,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(9.dp)
+                    ) {
+                        Text("Retry scan")
+                    }
+                }
                 if (state.scanInProgress) {
                     androidx.compose.material3.LinearProgressIndicator(
                         progress = state.scanProgress.coerceIn(0f, 1f),
@@ -621,6 +642,90 @@ private fun PagePreview(state: SessionState, onSelectRegion: (Float, Float, Floa
 }
 
 @Composable
+private fun TraceLogScreen(
+    modifier: Modifier,
+    state: SessionState,
+    logs: List<String>,
+    controller: SessionController
+) {
+    Column(
+        modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text("Trace log", style = MaterialTheme.typography.titleLarge)
+        Card(
+            colors = CardDefaults.cardColors(containerColor = InkPalette.surface),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, InkPalette.outline)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    when {
+                        state.captureInProgress -> "Recording screen"
+                        state.scanInProgress -> "Scanning"
+                        state.running && state.paused -> "Paused"
+                        state.running -> "Tracing"
+                        state.isError -> "Needs attention"
+                        state.paths.isNotEmpty() -> "Ready"
+                        else -> "Idle"
+                    },
+                    color = if (state.isError) InkPalette.error else InkPalette.accent,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(state.message, color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
+                if (state.running || state.totalPaths > 0) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = state.progress.coerceIn(0f, 1f),
+                        modifier = Modifier.fillMaxWidth(),
+                        color = InkPalette.accent,
+                        trackColor = InkPalette.raised
+                    )
+                }
+                StatusLine("Completed paths", state.completedPaths.toString())
+                StatusLine("Total paths", state.totalPaths.toString())
+                StatusLine("Failed paths", state.failedPaths.toString())
+                StatusLine("Last gesture", state.lastGestureResult)
+                if (state.isError && state.sourceBitmap != null && !state.scanInProgress && !state.running) {
+                    OutlinedButton(onClick = controller::scanPage, modifier = Modifier.fillMaxWidth()) {
+                        Text("Retry scan")
+                    }
+                }
+                if (state.resumeAvailable && !state.serviceConnected) {
+                    Text(
+                        "Reconnect Accessibility in Android settings, then return to ibisPaint. The trace resumes after the last completed path.",
+                        color = InkPalette.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+
+        Card(
+            colors = CardDefaults.cardColors(containerColor = InkPalette.surface),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, InkPalette.outline)
+        ) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("Events", style = MaterialTheme.typography.titleMedium)
+                if (logs.isEmpty()) {
+                    Text("No events yet.", color = InkPalette.secondaryText)
+                } else {
+                    logs.takeLast(200).asReversed().forEach { line ->
+                        Text(
+                            line,
+                            color = InkPalette.secondaryText,
+                            style = TextStyle(fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        )
+                        androidx.compose.material3.HorizontalDivider(color = InkPalette.outline)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsScreen(
     modifier: Modifier,
     state: SessionState,
@@ -637,6 +742,43 @@ private fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.titleLarge)
+
+        Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(12.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Scan quality", style = MaterialTheme.typography.titleMedium)
+                Text("Threshold adjustment: " + state.thresholdOffset, color = InkPalette.secondaryText)
+                Slider(
+                    value = state.thresholdOffset.toFloat(),
+                    onValueChange = { controller.setThresholdOffset(it.toInt()) },
+                    valueRange = -60f..60f,
+                    steps = 23
+                )
+                Text("Minimum component size: " + state.minComponentPixels + " pixels", color = InkPalette.secondaryText)
+                Slider(
+                    value = state.minComponentPixels.toFloat(),
+                    onValueChange = { controller.setMinComponentPixels(it.toInt()) },
+                    valueRange = 1f..20f,
+                    steps = 18
+                )
+                Text("Curve smoothing: " + (state.smoothing * 100f).toInt() + "%", color = InkPalette.secondaryText)
+                Slider(
+                    value = state.smoothing,
+                    onValueChange = controller::setSmoothing,
+                    valueRange = 0f..1f
+                )
+                Text("Detail preservation: " + (state.detailPreservation * 100f).toInt() + "%", color = InkPalette.secondaryText)
+                Slider(
+                    value = state.detailPreservation,
+                    onValueChange = controller::setDetailPreservation,
+                    valueRange = 0f..1f
+                )
+                Text(
+                    "Adjust these values and rescan to rebuild the paths. Higher speck filtering removes tiny marks; higher detail preservation keeps tighter corners and small features.",
+                    color = InkPalette.secondaryText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
 
         Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(12.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
