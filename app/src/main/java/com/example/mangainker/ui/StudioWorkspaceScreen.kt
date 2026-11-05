@@ -83,6 +83,9 @@ fun StudioWorkspaceScreen(
     var undoHistory by remember { mutableStateOf<List<List<StudioElement>>>(emptyList()) }
     var redoHistory by remember { mutableStateOf<List<List<StudioElement>>>(emptyList()) }
     var showDeletePageConfirmation by remember { mutableStateOf(false) }
+    var showRenameProjectDialog by remember { mutableStateOf(false) }
+    var showRenamePageDialog by remember { mutableStateOf(false) }
+    var renameText by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("Create a project from an imported page, or open a saved project.") }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
@@ -192,6 +195,30 @@ fun StudioWorkspaceScreen(
             message = "Page deleted. Remaining pages were preserved."
         } catch (error: Exception) {
             message = "Page deletion failed: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun renameCurrentProject() {
+        val current = project ?: return
+        try {
+            project = store.renameProject(current, renameText)
+            projectTitle = renameText.trim()
+            refreshProjects()
+            message = "Project renamed."
+        } catch (error: Exception) {
+            message = "Project rename failed: " + (error.message ?: "unknown error")
+        }
+    }
+
+    fun renameCurrentPage() {
+        val current = project ?: return
+        val activeId = current.activePageId ?: return
+        try {
+            project = store.renamePage(current, activeId, renameText)
+            refreshProjects()
+            message = "Page renamed."
+        } catch (error: Exception) {
+            message = "Page rename failed: " + (error.message ?: "unknown error")
         }
     }
 
@@ -400,7 +427,13 @@ fun StudioWorkspaceScreen(
 
             Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(14.dp)) {
                 Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Text(currentProject.title, style = MaterialTheme.typography.titleMedium)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(currentProject.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                        TextButton(onClick = {
+                            renameText = currentProject.title
+                            showRenameProjectDialog = true
+                        }) { Text("Rename") }
+                    }
                     Text("Pages · " + currentProject.pages.size, color = InkPalette.secondaryText, style = MaterialTheme.typography.labelSmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(
@@ -441,6 +474,13 @@ fun StudioWorkspaceScreen(
                             ) { Text("↓") }
                         }
                     }
+                    OutlinedButton(
+                        onClick = {
+                            renameText = currentProject.pages.firstOrNull { it.id == currentProject.activePageId }?.title.orEmpty()
+                            showRenamePageDialog = true
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Rename current page") }
                     Text(
                         "Choose a tool, then drag on the page. All added elements are stored with this project.",
                         color = InkPalette.secondaryText,
@@ -803,6 +843,54 @@ fun StudioWorkspaceScreen(
             },
             dismissButton = {
                 TextButton(onClick = { editingElementId = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showRenameProjectDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameProjectDialog = false },
+            title = { Text("Rename project") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it.take(60) },
+                    singleLine = true,
+                    label = { Text("Project name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    renameCurrentProject()
+                    showRenameProjectDialog = false
+                }) { Text("Save name") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameProjectDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showRenamePageDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenamePageDialog = false },
+            title = { Text("Rename page") },
+            text = {
+                OutlinedTextField(
+                    value = renameText,
+                    onValueChange = { renameText = it.take(60) },
+                    singleLine = true,
+                    label = { Text("Page name") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    renameCurrentPage()
+                    showRenamePageDialog = false
+                }) { Text("Save name") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenamePageDialog = false }) { Text("Cancel") }
             }
         )
     }
