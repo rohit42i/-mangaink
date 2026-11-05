@@ -406,13 +406,13 @@ private fun HomeScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(
                             onClick = { if (state.selectionMode) controller.cancelSelectionMode() else controller.enableSelectionMode() },
-                            enabled = !state.running && !state.scanInProgress,
+                            enabled = !state.running && !state.scanInProgress && !state.captureInProgress && !state.calibrating,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(9.dp)
                         ) { Text(if (state.selectionMode) "Cancel selection" else "Select scan area") }
                         OutlinedButton(
                             onClick = controller::scanFullPage,
-                            enabled = !state.running && !state.scanInProgress,
+                            enabled = !state.running && !state.scanInProgress && !state.captureInProgress && !state.calibrating,
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(9.dp)
                         ) { Text("Full page") }
@@ -479,7 +479,7 @@ private fun HomeScreen(
                         if (state.scanInProgress) controller.cancelScan()
                         else controller.scanPage()
                     },
-                    enabled = !state.running && (
+                    enabled = !state.running && !state.captureInProgress && !state.calibrating && (
                         state.scanInProgress ||
                             (state.sourceBitmap != null && !state.selectionMode)
                     ),
@@ -525,7 +525,7 @@ private fun HomeScreen(
                     )
                     OutlinedButton(
                         onClick = controller::scanPage,
-                        enabled = !state.scanInProgress && !state.running,
+                        enabled = !state.scanInProgress && !state.running && !state.captureInProgress && !state.calibrating,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(9.dp)
                     ) { Text("Rebuild paths with these settings") }
@@ -559,7 +559,7 @@ private fun HomeScreen(
                         controller.beginCalibration()
                         onShowFloatingPanel()
                     },
-                    enabled = state.paths.isNotEmpty() && !state.running,
+                    enabled = state.paths.isNotEmpty() && !state.running && !state.scanInProgress && !state.captureInProgress && !state.calibrating,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent),
                     shape = RoundedCornerShape(9.dp)
@@ -582,7 +582,7 @@ private fun HomeScreen(
                 if (state.paths.isNotEmpty()) {
                     OutlinedButton(
                         onClick = controller::clearPage,
-                        enabled = !state.running,
+                        enabled = !state.running && !state.scanInProgress && !state.captureInProgress && !state.calibrating,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(9.dp)
                     ) { Text("Clear page session") }
