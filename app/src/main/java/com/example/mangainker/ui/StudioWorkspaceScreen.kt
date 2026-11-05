@@ -23,6 +23,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -30,9 +31,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +52,13 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.min
 import kotlin.math.max
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class StudioTool(val label: String, val help: String) {
     SELECT("Select / Edit", "Drag an element to select and move it. Drag its lower-right handle to resize."),
@@ -83,6 +93,8 @@ fun StudioWorkspaceScreen(
     var undoHistory by remember { mutableStateOf<List<List<StudioElement>>>(emptyList()) }
     var redoHistory by remember { mutableStateOf<List<List<StudioElement>>>(emptyList()) }
     var showDeletePageConfirmation by remember { mutableStateOf(false) }
+    var exportingPng by remember { mutableStateOf(false) }
+    val exportScope = rememberCoroutineScope()
     var showRenameProjectDialog by remember { mutableStateOf(false) }
     var showRenamePageDialog by remember { mutableStateOf(false) }
     var renameText by remember { mutableStateOf("") }
@@ -395,9 +407,25 @@ fun StudioWorkspaceScreen(
             val currentPage = page!!
             val selectedElement = currentProject.elements.firstOrNull { it.id == selectedElementId }
 
-            // The workspace preview uses the exact compositor used by PNG export.
-            val previewBitmap = remember(currentPage, currentProject) {
-                store.renderPage(currentPage, currentProject)
+            // Render off the UI thread with cancellation checks. The preview and all
+            // exports use the same compositor so saved pages match what the editor shows.
+            var previewBitmap by remember(currentPage) { mutableStateOf<Bitmap?>(null) }
+            LaunchedEffect(currentPage, currentProject) {
+                val renderJob = currentCoroutineContext()[Job]
+                var rendered: Bitmap? = null
+                try {
+                    withContext(Dispatchers.Default) {
+                        rendered = store.renderPage(currentPage, currentProject) {
+                            if (renderJob?.isActive == false) {
+                                throw CancellationException("Studio preview rendering cancelled.")
+                            }
+                        }
+                    }
+                    previewBitmap = rendered
+                    rendered = null
+                } finally {
+                    rendered?.takeIf { !it.isRecycled }?.recycle()
+                }
             }
             DisposableEffect(currentPage) {
                 onDispose {
@@ -406,7 +434,7 @@ fun StudioWorkspaceScreen(
             }
             DisposableEffect(previewBitmap) {
                 onDispose {
-                    if (!previewBitmap.isRecycled) previewBitmap.recycle()
+                    previewBitmap?.takeIf { !it.isRecycled }?.recycle()
                 }
             }
 
@@ -509,12 +537,21 @@ fun StudioWorkspaceScreen(
                     Box(
                         Modifier.fillMaxWidth().height(440.dp).clip(RoundedCornerShape(9.dp)).background(Color(0xFF101014))
                     ) {
-                        Image(
-                            bitmap = previewBitmap.asImageBitmap(),
-                            contentDescription = "Comic project page",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
+                        if (previewBitmap != null && !previewBitmap!!.isRecycled) {
+                            Image(
+                                bitmap = previewBitmap!!.asImageBitmap(),
+                                contentDescription = "Comic project page",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator()
+                            }
+                        }
                         Canvas(
                             Modifier.fillMaxSize()
                                 .pointerInput(activeTool, currentPage.width, currentPage.height, currentProject.elements) {
@@ -791,15 +828,37 @@ fun StudioWorkspaceScreen(
                     }
                     Button(
                         onClick = {
-                            try {
-                                val rendered = store.renderPage(currentPage, currentProject)
-                                onExportImage(rendered)
-                            } catch (error: Exception) {
-                                message = "Export failed: " + (error.message ?: "unknown error")
+                            if (exportingPng) return@Button
+                            exportingPng = true
+                            exportScope.launch {
+                                var rendered: Bitmap? = null
+                                try {
+                                    val renderJob = currentCoroutineContext()[Job]
+                                    withContext(Dispatchers.Default) {
+                                        rendered = store.renderPage(currentPage, currentProject) {
+                                            if (renderJob?.isActive == false) {
+                                                throw CancellationException("PNG export cancelled.")
+                                            }
+                                        }
+                                    }
+                                    val result = rendered ?: error("The PNG export image was not created.")
+                                    onExportImage(result)
+                                    rendered = null // ownership transfers to MainActivity's Save As flow
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (error: Exception) {
+                                    message = "Export failed: " + (error.message ?: "unknown error")
+                                } finally {
+                                    rendered?.takeIf { !it.isRecycled }?.recycle()
+                                    exportingPng = false
+                                }
                             }
                         },
+                        enabled = !exportingPng,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("Export finished page as PNG") }
+                    ) {
+                        Text(if (exportingPng) "Rendering PNG…" else "Export finished page as PNG")
+                    }
                     OutlinedButton(
                         onClick = {
                             try {
