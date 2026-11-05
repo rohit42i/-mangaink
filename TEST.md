@@ -84,6 +84,8 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Confirm the project appears in the saved project list after leaving and reopening Studio.
 - [ ] Add at least two panel frames and verify they remain aligned to the page.
 - [ ] Add a dotted screentone area and verify the preview and exported result.
+- [ ] Add a grayscale gradient and verify the preview and exported result.
+- [ ] Add speed lines and verify the preview and exported result.
 - [ ] Add a dialogue bubble, edit its text, save and reopen the project.
 - [ ] Add a sound effect, edit its text, save and reopen the project.
 - [ ] Undo the most recent element and verify it is removed.
