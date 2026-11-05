@@ -22,7 +22,7 @@ The overlay runs as a user-started foreground service with a persistent notifica
 
 1. Import a page from Home.
 2. Open **Studio** and create a local project from the imported page.
-3. Choose **Panel**, **Tone**, **Bubble** or **SFX**, then drag on the page to place that element.
+3. Choose **Panel**, **Tone**, **Gradient**, **Speed lines**, **Bubble** or **SFX**, then drag on the page to place that element.
 4. Dialogue and SFX text can be edited in the text dialog. Project changes are saved in the app's private storage.
 5. Return to the project list to reopen or delete saved projects.
 6. Choose **Export finished page as PNG** and select a save location in Android's file picker.
