@@ -267,12 +267,20 @@ fun FloatingPanelContent(
                     }
 
                     if (state.scanInProgress) {
-                        LinearProgressIndicator(
-                            progress = state.scanProgress.coerceIn(0f, 1f),
-                            modifier = Modifier.fillMaxWidth(),
-                            color = InkPalette.accent,
-                            trackColor = InkPalette.raised
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            LinearProgressIndicator(
+                                progress = state.scanProgress.coerceIn(0f, 1f),
+                                modifier = Modifier.weight(1f),
+                                color = InkPalette.accent,
+                                trackColor = InkPalette.raised
+                            )
+                            TextButton(onClick = { controller.cancelScan() }) {
+                                Text("Stop scan", color = InkPalette.error, fontSize = 12.sp)
+                            }
+                        }
                         Text(
                             state.scanStatus,
                             color = InkPalette.secondaryText,
