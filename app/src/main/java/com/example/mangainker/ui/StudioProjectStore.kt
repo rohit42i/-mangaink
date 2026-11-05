@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -141,6 +143,8 @@ class StudioProjectStore(context: Context) {
             when (element.type) {
                 "panel" -> drawPanel(canvas, rect)
                 "tone" -> drawTone(canvas, rect)
+                "gradient" -> drawGradient(canvas, rect)
+                "speed" -> drawSpeedLines(canvas, rect)
                 "bubble" -> drawBubble(canvas, rect, element.text)
                 "sfx" -> drawSfx(canvas, rect, element.text)
             }
@@ -177,6 +181,41 @@ class StudioProjectStore(context: Context) {
         canvas.restoreToCount(save)
     }
 
+    private fun drawGradient(canvas: Canvas, rect: RectF) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            shader = LinearGradient(
+                rect.left,
+                rect.top,
+                rect.right,
+                rect.bottom,
+                intArrayOf(
+                    android.graphics.Color.TRANSPARENT,
+                    android.graphics.Color.argb(150, 0, 0, 0)
+                ),
+                null,
+                Shader.TileMode.CLAMP
+            )
+        }
+        canvas.drawRect(rect, paint)
+    }
+
+    private fun drawSpeedLines(canvas: Canvas, rect: RectF) {
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.BLACK
+            style = Paint.Style.STROKE
+            strokeWidth = max(1.2f, min(rect.width(), rect.height()) * 0.006f)
+        }
+        val save = canvas.save()
+        canvas.clipRect(rect)
+        val spacing = max(7f, rect.height() / 18f)
+        var y = rect.top - rect.width() * 0.35f
+        while (y < rect.bottom) {
+            canvas.drawLine(rect.left, y, rect.right, y + rect.width() * 0.35f, paint)
+            y += spacing
+        }
+        canvas.restoreToCount(save)
+    }
+
     private fun drawBubble(canvas: Canvas, rect: RectF, text: String) {
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.WHITE
@@ -188,6 +227,14 @@ class StudioProjectStore(context: Context) {
             strokeWidth = max(2f, min(rect.width(), rect.height()) * 0.018f)
         }
         val radius = min(rect.width(), rect.height()) * 0.22f
+        val tail = Path().apply {
+            moveTo(rect.centerX() - radius * 0.42f, rect.bottom - stroke.strokeWidth)
+            lineTo(rect.centerX(), rect.bottom + min(rect.height() * 0.16f, 24f))
+            lineTo(rect.centerX() + radius * 0.42f, rect.bottom - stroke.strokeWidth)
+            close()
+        }
+        canvas.drawPath(tail, fill)
+        canvas.drawPath(tail, stroke)
         canvas.drawRoundRect(rect, radius, radius, fill)
         canvas.drawRoundRect(rect, radius, radius, stroke)
 
