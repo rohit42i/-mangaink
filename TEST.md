@@ -78,6 +78,19 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Interrupt/disable Accessibility and verify recovery state.
 - [ ] Verify running border appears only during active trace.
 
+## Comic Studio projects and export
+
+- [ ] Import a page from Home and create a project in Studio.
+- [ ] Confirm the project appears in the saved project list after leaving and reopening Studio.
+- [ ] Add at least two panel frames and verify they remain aligned to the page.
+- [ ] Add a dotted screentone area and verify the preview and exported result.
+- [ ] Add a dialogue bubble, edit its text, save and reopen the project.
+- [ ] Add a sound effect, edit its text, save and reopen the project.
+- [ ] Undo the most recent element and verify it is removed.
+- [ ] Export the finished page as PNG using Android Save As.
+- [ ] Open the saved PNG in an image viewer and verify the source page and added elements are present.
+- [ ] Delete a test project and verify it disappears from the project list.
+
 ## Results
 
 - Automated CI: record workflow URL and result.
