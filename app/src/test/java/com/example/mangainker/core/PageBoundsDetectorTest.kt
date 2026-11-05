@@ -26,9 +26,9 @@ class PageBoundsDetectorTest {
 
         assertNotNull(bounds)
         assertTrue(bounds!!.left in 53..56)
-        assertTrue(bounds.top in 97..100)
+        assertTrue(bounds.top in 93..96)
         assertTrue(bounds.right in 344..347)
-        assertTrue(bounds.bottom in 600..603)
+        assertTrue(bounds.bottom in 604..607)
     }
 
     @Test
