@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.sp
 private enum class StudioTool(val label: String, val help: String) {
     PANEL("Panel", "Drag to add a panel frame."),
     TONE("Tone", "Drag an area to add a dotted screentone."),
+    GRADIENT("Gradient", "Drag an area for a grayscale gradient."),
+    SPEED("Speed lines", "Drag an area for motion lines."),
     BUBBLE("Bubble", "Drag a box for dialogue or narration."),
     SFX("SFX", "Drag an area for a sound effect.")
 }
@@ -232,7 +234,13 @@ fun StudioWorkspaceScreen(
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        StudioTool.entries.drop(2).forEach { tool ->
+                        StudioTool.entries.drop(2).take(2).forEach { tool ->
+                            if (tool == activeTool) Button(onClick = { activeTool = tool }, modifier = Modifier.weight(1f)) { Text(tool.label) }
+                            else OutlinedButton(onClick = { activeTool = tool }, modifier = Modifier.weight(1f)) { Text(tool.label) }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        StudioTool.entries.drop(4).forEach { tool ->
                             if (tool == activeTool) Button(onClick = { activeTool = tool }, modifier = Modifier.weight(1f)) { Text(tool.label) }
                             else OutlinedButton(onClick = { activeTool = tool }, modifier = Modifier.weight(1f)) { Text(tool.label) }
                         }
@@ -330,6 +338,30 @@ fun StudioWorkspaceScreen(
                                                 x += 8f
                                             }
                                             y += 8f
+                                        }
+                                        drawRect(Color.Black, rect, rectSize, style = Stroke(width = 1.dp.toPx()))
+                                    }
+                                    "gradient" -> {
+                                        for (step in 0..7) {
+                                            drawRect(
+                                                Color.Black.copy(alpha = 0.04f + step * 0.035f),
+                                                topLeft = Offset(left + rectSize.width * step / 8f, top),
+                                                size = Size(rectSize.width / 8f + 1f, rectSize.height)
+                                            )
+                                        }
+                                    }
+                                    "speed" -> {
+                                        val spacing = maxOf(7f, rectSize.height / 18f)
+                                        var y = top
+                                        while (y < bottom) {
+                                            val endY = (y + rectSize.width * 0.30f).coerceIn(top, bottom)
+                                            drawLine(
+                                                Color.Black,
+                                                start = Offset(left, y.coerceIn(top, bottom)),
+                                                end = Offset(right, endY),
+                                                strokeWidth = 1.3f
+                                            )
+                                            y += spacing
                                         }
                                         drawRect(Color.Black, rect, rectSize, style = Stroke(width = 1.dp.toPx()))
                                     }
