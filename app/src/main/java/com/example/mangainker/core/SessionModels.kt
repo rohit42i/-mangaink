@@ -2,6 +2,12 @@ package com.example.mangainker.core
 
 import android.graphics.Bitmap
 
+data class PathLogEntry(
+    val pathNumber: Int,
+    val status: String,
+    val detail: String = ""
+)
+
 data class SessionState(
     val serviceConnected: Boolean = false,
     val ibisPaintForeground: Boolean = false,
@@ -53,6 +59,7 @@ data class SessionState(
     val completedPaths: Int = 0,
     val totalPaths: Int = 0,
     val failedPaths: Int = 0,
+    val pathLog: List<PathLogEntry> = emptyList(),
     val resumeAvailable: Boolean = false,
     val progress: Float = 0f
 )
