@@ -28,10 +28,17 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Enable Manga Inker in Accessibility settings.
 - [ ] Allow Display over other apps.
 - [ ] Start the floating panel and verify its persistent notification.
-- [ ] Drag the compact bubble; verify it snaps to either edge.
+- [ ] Drag the compact bubble; verify it stays fully inside the screen and snaps to either edge.
+- [ ] Expand a bubble snapped to the right edge; verify the full panel remains visible and aligned to the right edge.
+- [ ] Expand a bubble snapped to the left edge; verify the full panel remains visible and aligned to the left edge.
+- [ ] Minimize after expanding on either edge; verify the compact bubble returns to that same edge.
+- [ ] Restart the floating service and verify its last snapped position is restored.
+- [ ] Rotate/change display size and verify the bubble is clamped back onto the visible screen.
 - [ ] Expand, minimize and reopen the panel.
 - [ ] Verify More menu actions are available and enabled only when applicable.
 - [ ] Start a full-page scan from More and verify stage text and progress update in the overlay.
+- [ ] While a scan is running, verify the direct Stop scan control cancels it without clearing the imported page.
+- [ ] Use the floating service notification's Turn off action; verify scanning/tracing and any active screen capture stop and the overlay disappears.
 - [ ] Tap Stop scanning during a scan and verify it cancels without clearing the imported page.
 - [ ] Turn the overlay off during a scan and verify the operation is cancelled.
 - [ ] While screen capture is waiting for ibisPaint, use the Recording screen notification's Stop capture action and verify capture ends.
@@ -44,6 +51,8 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] Approve Android's screen-capture consent prompt for this session.
 - [ ] Confirm a persistent Recording screen notification appears.
 - [ ] Confirm Manga Inker returns to ibisPaint and waits for it to be foreground.
+- [ ] Confirm the floating bubble is hidden during the captured frame so it cannot be included in the artwork.
+- [ ] Confirm the Recording screen notification provides a working Stop capture action.
 - [ ] Confirm one frame is captured and the recording notification disappears.
 - [ ] Confirm a light artwork canvas is auto-detected and cropped without ibisPaint toolbars.
 - [ ] Test a dark or ambiguous canvas and verify the full frame is retained for manual selection.
