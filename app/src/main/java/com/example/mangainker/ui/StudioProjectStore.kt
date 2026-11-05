@@ -13,6 +13,9 @@ import android.graphics.Typeface
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.UUID
 import kotlin.math.max
 import kotlin.math.min
@@ -247,15 +250,29 @@ class StudioProjectStore(context: Context) {
             })
         }
         val temporary = File(directory, "project.json.tmp")
-        temporary.writeText(json.toString(2))
         val target = File(directory, "project.json")
-        if (target.exists() && !target.delete()) {
+        try {
+            temporary.writeText(json.toString(2))
+            try {
+                Files.move(
+                    temporary.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            } catch (_: AtomicMoveNotSupportedException) {
+                Files.move(
+                    temporary.toPath(),
+                    target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING
+                )
+            }
+        } catch (error: Exception) {
             temporary.delete()
-            throw IllegalStateException("Could not replace the saved project file.")
-        }
-        check(temporary.renameTo(target)) {
-            temporary.delete()
-            "Could not save the project changes."
+            throw IllegalStateException(
+                "Could not save the project changes: " + (error.message ?: error.javaClass.simpleName),
+                error
+            )
         }
     }
 
@@ -267,19 +284,25 @@ class StudioProjectStore(context: Context) {
     }
 
     /** Writes one rendered PNG per project page into a streaming CBZ archive. */
-    fun writeProjectCbz(project: StudioProject, output: java.io.OutputStream) {
+    fun writeProjectCbz(
+        project: StudioProject,
+        output: java.io.OutputStream,
+        cancellationCheck: () -> Unit = {}
+    ) {
         val pages = pagesFor(project)
         require(pages.isNotEmpty()) { "This project does not contain any pages." }
         java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(output)).use { archive ->
             pages.forEachIndexed { index, metadata ->
+                cancellationCheck()
                 val loaded = loadPage(project, metadata.id)
                     ?: throw IllegalStateException("Could not open Page ${index + 1} for export.")
                 val rendered = try {
-                    renderPage(loaded.page, loaded.project)
+                    renderPage(loaded.page, loaded.project, cancellationCheck)
                 } finally {
                     if (!loaded.page.isRecycled) loaded.page.recycle()
                 }
                 try {
+                    cancellationCheck()
                     val name = "Page-" + (index + 1).toString().padStart(3, '0') + ".png"
                     archive.putNextEntry(java.util.zip.ZipEntry(name))
                     check(rendered.compress(Bitmap.CompressFormat.PNG, 100, archive)) {
@@ -290,6 +313,7 @@ class StudioProjectStore(context: Context) {
                     if (!rendered.isRecycled) rendered.recycle()
                 }
             }
+            cancellationCheck()
             archive.finish()
         }
     }
@@ -335,10 +359,19 @@ class StudioProjectStore(context: Context) {
         )
 
     private fun writePageBitmap(bitmap: Bitmap, file: File) {
-        file.outputStream().buffered().use { output ->
-            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                "The source page could not be saved."
+        require(!bitmap.isRecycled) { "The source page is no longer available." }
+        val temporary = File(file.parentFile, file.name + ".tmp")
+        try {
+            temporary.outputStream().buffered().use { output ->
+                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                    "The source page could not be saved."
+                }
+                output.flush()
             }
+            check(temporary.renameTo(file)) { "Could not commit the saved page image." }
+        } catch (error: Exception) {
+            temporary.delete()
+            throw error
         }
     }
 
@@ -381,35 +414,46 @@ class StudioProjectStore(context: Context) {
 
 
     /** Returns a rendered copy. The source bitmap and saved project remain unchanged. */
-    fun renderPage(source: Bitmap, project: StudioProject): Bitmap {
+    fun renderPage(
+        source: Bitmap,
+        project: StudioProject,
+        cancellationCheck: () -> Unit = {}
+    ): Bitmap {
         require(!source.isRecycled) { "The project page is no longer available." }
         val output = source.copy(Bitmap.Config.ARGB_8888, true)
             ?: throw IllegalStateException("Could not create the export image.")
-        val canvas = Canvas(output)
-        val width = output.width.toFloat()
-        val height = output.height.toFloat()
-        project.elements.forEach { element ->
-            val left = element.left.coerceIn(0f, 1f) * width
-            val top = element.top.coerceIn(0f, 1f) * height
-            val right = element.right.coerceIn(0f, 1f) * width
-            val bottom = element.bottom.coerceIn(0f, 1f) * height
-            if (right - left < 2f || bottom - top < 2f) return@forEach
-            val rect = RectF(left, top, right, bottom)
-            val layerSave = canvas.save()
-            if (element.rotationDegrees != 0f) {
-                canvas.rotate(element.rotationDegrees, rect.centerX(), rect.centerY())
+        try {
+            val canvas = Canvas(output)
+            val width = output.width.toFloat()
+            val height = output.height.toFloat()
+            project.elements.forEach { element ->
+                cancellationCheck()
+                val left = element.left.coerceIn(0f, 1f) * width
+                val top = element.top.coerceIn(0f, 1f) * height
+                val right = element.right.coerceIn(0f, 1f) * width
+                val bottom = element.bottom.coerceIn(0f, 1f) * height
+                if (right - left < 2f || bottom - top < 2f) return@forEach
+                val rect = RectF(left, top, right, bottom)
+                val layerSave = canvas.save()
+                if (element.rotationDegrees != 0f) {
+                    canvas.rotate(element.rotationDegrees, rect.centerX(), rect.centerY())
+                }
+                when (element.type) {
+                    "panel" -> drawPanel(canvas, rect)
+                    "tone" -> drawTone(canvas, rect, element.effectDensity, cancellationCheck)
+                    "gradient" -> drawGradient(canvas, rect)
+                    "speed" -> drawSpeedLines(canvas, rect, element.effectDensity, cancellationCheck)
+                    "bubble" -> drawBubble(canvas, rect, element.text, element.textScale, element.tailOffsetX)
+                    "sfx" -> drawSfx(canvas, rect, element.text, element.textScale)
+                }
+                canvas.restoreToCount(layerSave)
             }
-            when (element.type) {
-                "panel" -> drawPanel(canvas, rect)
-                "tone" -> drawTone(canvas, rect, element.effectDensity)
-                "gradient" -> drawGradient(canvas, rect)
-                "speed" -> drawSpeedLines(canvas, rect, element.effectDensity)
-                "bubble" -> drawBubble(canvas, rect, element.text, element.textScale, element.tailOffsetX)
-                "sfx" -> drawSfx(canvas, rect, element.text, element.textScale)
-            }
-            canvas.restoreToCount(layerSave)
+            cancellationCheck()
+            return output
+        } catch (error: Exception) {
+            if (!output.isRecycled) output.recycle()
+            throw error
         }
-        return output
     }
 
     private fun drawPanel(canvas: Canvas, rect: RectF) {
@@ -421,7 +465,7 @@ class StudioProjectStore(context: Context) {
         canvas.drawRect(rect, paint)
     }
 
-    private fun drawTone(canvas: Canvas, rect: RectF, density: Float) {
+    private fun drawTone(canvas: Canvas, rect: RectF, density: Float, cancellationCheck: () -> Unit) {
         val spacing = max(3f, min(rect.width(), rect.height()) / (22f * density.coerceIn(0.35f, 2.5f)))
         val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
@@ -431,6 +475,7 @@ class StudioProjectStore(context: Context) {
         canvas.clipRect(rect)
         var y = rect.top + spacing / 2f
         while (y < rect.bottom) {
+            cancellationCheck()
             var x = rect.left + spacing / 2f
             while (x < rect.right) {
                 canvas.drawCircle(x, y, spacing * 0.11f, dot)
@@ -459,7 +504,7 @@ class StudioProjectStore(context: Context) {
         canvas.drawRect(rect, paint)
     }
 
-    private fun drawSpeedLines(canvas: Canvas, rect: RectF, density: Float) {
+    private fun drawSpeedLines(canvas: Canvas, rect: RectF, density: Float, cancellationCheck: () -> Unit) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
             style = Paint.Style.STROKE
@@ -470,6 +515,7 @@ class StudioProjectStore(context: Context) {
         val spacing = max(3f, rect.height() / (18f * density.coerceIn(0.35f, 2.5f)))
         var y = rect.top - rect.width() * 0.35f
         while (y < rect.bottom) {
+            cancellationCheck()
             canvas.drawLine(rect.left, y, rect.right, y + rect.width() * 0.35f, paint)
             y += spacing
         }
