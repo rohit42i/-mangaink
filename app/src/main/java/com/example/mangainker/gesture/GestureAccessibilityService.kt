@@ -35,7 +35,12 @@ class GestureAccessibilityService : AccessibilityService(), GestureDispatcher {
     }
 
     override fun onInterrupt() {
-        if (::controller.isInitialized) controller.unregisterDispatcher(this, "Accessibility service interrupted")
+        // Android interrupts accessibility feedback without necessarily unbinding this service.
+        // Stop any active run, but keep the dispatcher registered while the service stays connected.
+        if (::controller.isInitialized && controller.state.value.running) {
+            Logger.warning("Accessibility feedback interrupted; stopping the active trace.")
+            controller.dispatch(SessionCommand.Stop)
+        }
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
