@@ -27,6 +27,15 @@ data class StudioElement(
     val text: String = ""
 )
 
+data class StudioPage(
+    val id: String,
+    val title: String,
+    val pageFile: String,
+    val pageWidth: Int,
+    val pageHeight: Int,
+    val elements: List<StudioElement> = emptyList()
+)
+
 data class StudioProject(
     val id: String,
     val title: String,
@@ -34,7 +43,9 @@ data class StudioProject(
     val pageWidth: Int,
     val pageHeight: Int,
     val updatedAt: Long,
-    val elements: List<StudioElement> = emptyList()
+    val elements: List<StudioElement> = emptyList(),
+    val pages: List<StudioPage> = emptyList(),
+    val activePageId: String? = null
 )
 
 data class LoadedStudioProject(
@@ -60,53 +71,161 @@ class StudioProjectStore(context: Context) {
         val id = UUID.randomUUID().toString()
         val directory = File(root, id)
         check(directory.mkdirs() || directory.isDirectory) { "Could not create the project folder." }
-        val image = File(directory, "page.png")
-        image.outputStream().buffered().use { output ->
-            check(page.compress(Bitmap.CompressFormat.PNG, 100, output)) {
-                "The source page could not be saved."
-            }
-        }
-        val project = StudioProject(
-            id = id,
-            title = safeTitle,
-            pageFile = "page.png",
+        val pageId = UUID.randomUUID().toString()
+        val image = File(directory, "page-$pageId.png")
+        writePageBitmap(page, image)
+        val firstPage = StudioPage(
+            id = pageId,
+            title = "Page 1",
+            pageFile = image.name,
             pageWidth = page.width,
-            pageHeight = page.height,
-            updatedAt = System.currentTimeMillis()
+            pageHeight = page.height
+        )
+        val project = projectForPage(
+            StudioProject(
+                id = id,
+                title = safeTitle,
+                pageFile = firstPage.pageFile,
+                pageWidth = firstPage.pageWidth,
+                pageHeight = firstPage.pageHeight,
+                updatedAt = System.currentTimeMillis(),
+                pages = listOf(firstPage),
+                activePageId = pageId
+            ),
+            firstPage
         )
         saveProject(project)
         return project
     }
 
     fun loadProject(id: String): LoadedStudioProject? {
-        val directory = File(root, id)
-        val project = readProject(File(directory, "project.json")) ?: return null
-        val image = File(directory, project.pageFile)
+        val stored = readProject(File(root, id)) ?: return null
+        return loadPage(stored, stored.activePageId ?: stored.pages.firstOrNull()?.id.orEmpty())
+    }
+
+    fun loadPage(project: StudioProject, pageId: String): LoadedStudioProject? {
+        val page = pagesFor(project).firstOrNull { it.id == pageId } ?: return null
+        val image = File(File(root, project.id), page.pageFile)
         if (!image.isFile) return null
         val bitmap = BitmapFactory.decodeFile(image.absolutePath) ?: return null
-        return LoadedStudioProject(project, bitmap)
+        return LoadedStudioProject(projectForPage(project, page), bitmap)
+    }
+
+    fun addPage(project: StudioProject, bitmap: Bitmap, title: String): StudioProject {
+        require(!bitmap.isRecycled) { "The imported page is no longer available. Import it again." }
+        val directory = File(root, project.id)
+        require(directory.isDirectory) { "This project folder no longer exists." }
+        val pages = pagesFor(project)
+        val id = UUID.randomUUID().toString()
+        val image = File(directory, "page-$id.png")
+        writePageBitmap(bitmap, image)
+        val page = StudioPage(
+            id = id,
+            title = title.trim().ifBlank { "Page ${pages.size + 1}" }.take(60),
+            pageFile = image.name,
+            pageWidth = bitmap.width,
+            pageHeight = bitmap.height
+        )
+        val updated = projectForPage(project.copy(pages = pages + page), page)
+        saveProject(updated)
+        return updated
+    }
+
+    fun duplicateActivePage(project: StudioProject): StudioProject {
+        val pages = pagesFor(project)
+        val active = pages.firstOrNull { it.id == project.activePageId }
+            ?: throw IllegalStateException("Choose a page to duplicate.")
+        val directory = File(root, project.id)
+        val source = File(directory, active.pageFile)
+        require(source.isFile) { "The current page image is missing." }
+        val duplicateId = UUID.randomUUID().toString()
+        val target = File(directory, "page-$duplicateId.png")
+        source.copyTo(target, overwrite = false)
+        val duplicate = active.copy(
+            id = duplicateId,
+            title = active.title + " copy",
+            pageFile = target.name,
+            elements = active.elements.map { it.copy(id = UUID.randomUUID().toString()) }
+        )
+        val updated = projectForPage(project.copy(pages = pages + duplicate), duplicate)
+        saveProject(updated)
+        return updated
+    }
+
+    fun movePage(project: StudioProject, pageId: String, offset: Int): StudioProject {
+        val pages = pagesFor(project).toMutableList()
+        val index = pages.indexOfFirst { it.id == pageId }
+        if (index < 0) return project
+        val target = (index + offset).coerceIn(0, pages.lastIndex)
+        if (target == index) return project
+        val moved = pages.removeAt(index)
+        pages.add(target, moved)
+        val updated = project.copy(pages = pages)
+        saveProject(updated)
+        return updated
+    }
+
+    fun removePage(project: StudioProject, pageId: String): StudioProject {
+        val pages = pagesFor(project)
+        require(pages.size > 1) { "A project must keep at least one page." }
+        val index = pages.indexOfFirst { it.id == pageId }
+        require(index >= 0) { "The selected page no longer exists." }
+        val remaining = pages.toMutableList().apply { removeAt(index) }
+        val nextActive = if (project.activePageId == pageId) {
+            remaining[(index - 1).coerceAtLeast(0)]
+        } else {
+            remaining.first { it.id == project.activePageId }
+        }
+        val updated = projectForPage(project.copy(pages = remaining), nextActive)
+        saveProject(updated)
+        val deleted = File(File(root, project.id), pages[index].pageFile)
+        if (deleted.exists()) deleted.delete()
+        return updated
     }
 
     fun saveProject(project: StudioProject) {
         val directory = File(root, project.id)
         require(directory.isDirectory) { "This project folder no longer exists." }
+        val normalizedPages = pagesFor(project).toMutableList()
+        val activeIndex = normalizedPages.indexOfFirst { it.id == project.activePageId }
+        val activePage = if (activeIndex >= 0) {
+            normalizedPages[activeIndex].copy(
+                pageFile = project.pageFile,
+                pageWidth = project.pageWidth,
+                pageHeight = project.pageHeight,
+                elements = project.elements
+            ).also { normalizedPages[activeIndex] = it }
+        } else {
+            val newPage = StudioPage(
+                id = UUID.randomUUID().toString(),
+                title = "Page 1",
+                pageFile = project.pageFile,
+                pageWidth = project.pageWidth,
+                pageHeight = project.pageHeight,
+                elements = project.elements
+            )
+            normalizedPages.add(newPage)
+            newPage
+        }
+
         val json = JSONObject().apply {
             put("id", project.id)
             put("title", project.title)
-            put("pageFile", project.pageFile)
-            put("pageWidth", project.pageWidth)
-            put("pageHeight", project.pageHeight)
+            put("pageFile", activePage.pageFile)
+            put("pageWidth", activePage.pageWidth)
+            put("pageHeight", activePage.pageHeight)
             put("updatedAt", System.currentTimeMillis())
-            put("elements", JSONArray().apply {
-                project.elements.forEach { element ->
+            put("activePageId", activePage.id)
+            put("elements", elementsToJson(activePage.elements))
+            put("pages", JSONArray().apply {
+                normalizedPages.forEach { page ->
                     put(JSONObject().apply {
-                        put("id", element.id)
-                        put("type", element.type)
-                        put("left", element.left.toDouble())
-                        put("top", element.top.toDouble())
-                        put("right", element.right.toDouble())
-                        put("bottom", element.bottom.toDouble())
-                        put("text", element.text)
+                        put("id", page.id)
+                        put("title", page.title)
+                        put("pageFile", page.pageFile)
+                        put("pageWidth", page.pageWidth)
+                        put("pageHeight", page.pageHeight)
+                        put("elements", elementsToJson(page.elements))
                     })
                 }
             })
@@ -114,8 +233,14 @@ class StudioProjectStore(context: Context) {
         val temporary = File(directory, "project.json.tmp")
         temporary.writeText(json.toString(2))
         val target = File(directory, "project.json")
-        if (target.exists()) target.delete()
-        check(temporary.renameTo(target)) { "Could not save the project changes." }
+        if (target.exists() && !target.delete()) {
+            temporary.delete()
+            throw IllegalStateException("Could not replace the saved project file.")
+        }
+        check(temporary.renameTo(target)) {
+            temporary.delete()
+            "Could not save the project changes."
+        }
     }
 
     fun deleteProject(id: String) {
@@ -124,6 +249,69 @@ class StudioProjectStore(context: Context) {
             throw IllegalStateException("Could not delete this project.")
         }
     }
+
+    private fun pagesFor(project: StudioProject): List<StudioPage> {
+        if (project.pages.isNotEmpty()) return project.pages
+        val id = project.activePageId ?: "legacy-page-1"
+        return listOf(
+            StudioPage(
+                id = id,
+                title = "Page 1",
+                pageFile = project.pageFile,
+                pageWidth = project.pageWidth,
+                pageHeight = project.pageHeight,
+                elements = project.elements
+            )
+        )
+    }
+
+    private fun projectForPage(project: StudioProject, page: StudioPage): StudioProject =
+        project.copy(
+            pageFile = page.pageFile,
+            pageWidth = page.pageWidth,
+            pageHeight = page.pageHeight,
+            elements = page.elements,
+            pages = pagesFor(project),
+            activePageId = page.id
+        )
+
+    private fun writePageBitmap(bitmap: Bitmap, file: File) {
+        file.outputStream().buffered().use { output ->
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)) {
+                "The source page could not be saved."
+            }
+        }
+    }
+
+    private fun elementsToJson(elements: List<StudioElement>): JSONArray =
+        JSONArray().apply {
+            elements.forEach { element ->
+                put(JSONObject().apply {
+                    put("id", element.id)
+                    put("type", element.type)
+                    put("left", element.left.toDouble())
+                    put("top", element.top.toDouble())
+                    put("right", element.right.toDouble())
+                    put("bottom", element.bottom.toDouble())
+                    put("text", element.text)
+                })
+            }
+        }
+
+    private fun elementsFromJson(array: JSONArray): List<StudioElement> =
+        (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            StudioElement(
+                id = item.optString("id", UUID.randomUUID().toString()),
+                type = item.optString("type"),
+                left = item.optDouble("left").toFloat(),
+                top = item.optDouble("top").toFloat(),
+                right = item.optDouble("right").toFloat(),
+                bottom = item.optDouble("bottom").toFloat(),
+                text = item.optString("text")
+            )
+        }
+
 
     /** Returns a rendered copy. The source bitmap and saved project remain unchanged. */
     fun renderPage(source: Bitmap, project: StudioProject): Bitmap {
@@ -270,27 +458,47 @@ class StudioProjectStore(context: Context) {
     private fun readProject(file: File): StudioProject? = runCatching {
         if (!file.isFile) return@runCatching null
         val json = JSONObject(file.readText())
-        val elementsJson = json.optJSONArray("elements") ?: JSONArray()
-        val elements = (0 until elementsJson.length()).mapNotNull { index ->
-            val item = elementsJson.optJSONObject(index) ?: return@mapNotNull null
-            StudioElement(
-                id = item.optString("id"),
-                type = item.optString("type"),
-                left = item.optDouble("left").toFloat(),
-                top = item.optDouble("top").toFloat(),
-                right = item.optDouble("right").toFloat(),
-                bottom = item.optDouble("bottom").toFloat(),
-                text = item.optString("text")
+        val legacyElements = elementsFromJson(json.optJSONArray("elements") ?: JSONArray())
+        val pagesJson = json.optJSONArray("pages") ?: JSONArray()
+        val pages = (0 until pagesJson.length()).mapNotNull { index ->
+            val item = pagesJson.optJSONObject(index) ?: return@mapNotNull null
+            val pageFile = item.optString("pageFile").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            StudioPage(
+                id = item.optString("id").ifBlank { "page-${index + 1}" },
+                title = item.optString("title", "Page ${index + 1}"),
+                pageFile = pageFile,
+                pageWidth = item.optInt("pageWidth"),
+                pageHeight = item.optInt("pageHeight"),
+                elements = elementsFromJson(item.optJSONArray("elements") ?: JSONArray())
             )
         }
+        val rootPageFile = json.optString("pageFile", "page.png")
+        val normalizedPages = if (pages.isEmpty()) {
+            listOf(
+                StudioPage(
+                    id = "legacy-page-1",
+                    title = "Page 1",
+                    pageFile = rootPageFile,
+                    pageWidth = json.optInt("pageWidth"),
+                    pageHeight = json.optInt("pageHeight"),
+                    elements = legacyElements
+                )
+            )
+        } else pages
+        val activeId = json.optString("activePageId").takeIf { id ->
+            id.isNotBlank() && normalizedPages.any { it.id == id }
+        } ?: normalizedPages.first().id
+        val selectedPage = normalizedPages.first { it.id == activeId }
         StudioProject(
             id = json.getString("id"),
             title = json.optString("title", "Untitled project"),
-            pageFile = json.optString("pageFile", "page.png"),
-            pageWidth = json.optInt("pageWidth"),
-            pageHeight = json.optInt("pageHeight"),
+            pageFile = selectedPage.pageFile,
+            pageWidth = selectedPage.pageWidth,
+            pageHeight = selectedPage.pageHeight,
             updatedAt = json.optLong("updatedAt"),
-            elements = elements
+            elements = selectedPage.elements,
+            pages = normalizedPages,
+            activePageId = selectedPage.id
         )
     }.getOrNull()
 }
