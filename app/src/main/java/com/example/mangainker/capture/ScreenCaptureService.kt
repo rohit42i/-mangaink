@@ -48,6 +48,12 @@ class ScreenCaptureService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopReason = "Screen capture cancelled from the floating controls."
+            (application as? MangaInkerApp)?.sessionController?.setScreenCaptureState(false, stopReason)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val resultData = if (Build.VERSION.SDK_INT >= 33) {
             intent?.getParcelableExtra(EXTRA_RESULT_DATA, Intent::class.java)
@@ -190,6 +196,7 @@ class ScreenCaptureService : Service() {
     companion object {
         const val EXTRA_RESULT_CODE = "capture_result_code"
         const val EXTRA_RESULT_DATA = "capture_result_data"
+        const val ACTION_STOP = "com.example.mangainker.action.STOP_SCREEN_CAPTURE"
         private const val NOTIFICATION_ID = 42
     }
 }
