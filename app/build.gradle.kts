@@ -40,6 +40,11 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Keep the test build side-by-side with any installed release APK.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         getByName("release") {
             isMinifyEnabled = false
             // Without protected CI secrets Gradle produces an unsigned release APK.
