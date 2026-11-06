@@ -1,6 +1,8 @@
 package com.example.mangainker.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.media.projection.MediaProjectionManager
@@ -108,6 +110,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var pendingAssistantEnable = false
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val shouldEnable = pendingAssistantEnable
+        pendingAssistantEnable = false
+        if (!granted) {
+            Toast.makeText(
+                this,
+                "Notifications are disabled. Android may hide the floating assistant's foreground notification.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+        if (shouldEnable) enableAssistantNow()
+    }
+
     private val openDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         uri?.let(controller::importPage)
     }
@@ -211,6 +229,7 @@ class MainActivity : ComponentActivity() {
 
     private fun setAssistantEnabled(enabled: Boolean) {
         if (!enabled) {
+            pendingAssistantEnable = false
             val session = controller.state.value
             if (session.scanInProgress) controller.cancelScan()
             if (session.running) controller.dispatch(SessionCommand.Stop)
@@ -221,6 +240,17 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingAssistantEnable = true
+            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        enableAssistantNow()
+    }
+
+    private fun enableAssistantNow() {
         when (OverlayActivation.enable(this)) {
             AssistantEnableResult.NEEDS_OVERLAY_PERMISSION -> {
                 Toast.makeText(
