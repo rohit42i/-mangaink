@@ -386,7 +386,11 @@ class FloatingPanelService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     params.x = (startX + event.rawX - downRawX).toInt().coerceAtLeast(0)
                     params.y = (startY + event.rawY - downRawY).toInt().coerceAtLeast(0)
-                    updateViewLayoutSafely(view, params, "calibration handle drag")
+                    if (!updateViewLayoutSafely(view, params, "calibration handle drag")) {
+                        params.x = startX
+                        params.y = startY
+                        return true
+                    }
                     val size = dp(48)
                     controller.moveCalibrationCorner(
                         index,
