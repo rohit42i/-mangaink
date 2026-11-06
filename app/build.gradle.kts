@@ -19,19 +19,32 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    val releaseStoreFile = providers.environmentVariable("MANGA_INKER_RELEASE_STORE_FILE").orNull
+    val releaseStorePassword = providers.environmentVariable("MANGA_INKER_RELEASE_STORE_PASSWORD").orNull
+    val releaseKeyAlias = providers.environmentVariable("MANGA_INKER_RELEASE_KEY_ALIAS").orNull
+    val releaseKeyPassword = providers.environmentVariable("MANGA_INKER_RELEASE_KEY_PASSWORD").orNull
+    val releaseSigningConfigured = !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
     signingConfigs {
         create("release") {
-            storeFile = rootProject.file(".ci/manga-inker-release.jks")
-            storePassword = "MI_Release_2026_Private"
-            keyAlias = "mangainker-release"
-            keyPassword = "MI_Release_2026_Private"
+            if (releaseSigningConfigured) {
+                storeFile = file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
         }
     }
 
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            // Without protected CI secrets Gradle produces an unsigned release APK.
+            // A distributable APK is signed only when the owner supplies the keystore secrets.
+            signingConfig = if (releaseSigningConfigured) signingConfigs.getByName("release") else null
         }
     }
 
