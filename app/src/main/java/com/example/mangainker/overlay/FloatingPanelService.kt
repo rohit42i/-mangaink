@@ -58,6 +58,7 @@ class FloatingPanelService : Service() {
     private var calibrationVisible = false
     private var panelSnapEdge = -1
     private var activationReported = false
+    private var captureOverlayHidden = false
 
     private data class CalibrationHandle(
         val view: TextView,
@@ -86,10 +87,14 @@ class FloatingPanelService : Service() {
 
             serviceScope.launch {
                 controller.state.collect { state ->
-                    when {
-                        state.captureInProgress && calibrationVisible -> removeCalibration()
-                        !state.captureInProgress && state.calibrating && !calibrationVisible -> showCalibration()
-                        !state.calibrating && calibrationVisible -> removeCalibration()
+                    if (state.captureInProgress) {
+                        setCaptureOverlayHidden(true)
+                    } else {
+                        setCaptureOverlayHidden(false)
+                        when {
+                            state.calibrating && !calibrationVisible -> showCalibration()
+                            !state.calibrating && calibrationVisible -> removeCalibration()
+                        }
                     }
                 }
             }
@@ -448,6 +453,20 @@ class FloatingPanelService : Service() {
             stopService(Intent(this, ScreenCaptureService::class.java))
         }
         stopSelf()
+    }
+
+    /**
+     * Hide every visual overlay while MediaProjection captures the ibisPaint canvas.
+     * INVISIBLE also prevents the floating panel from intercepting touches during capture.
+     */
+    private fun setCaptureOverlayHidden(hidden: Boolean) {
+        if (captureOverlayHidden == hidden) return
+        captureOverlayHidden = hidden
+        val visibility = if (hidden) View.INVISIBLE else View.VISIBLE
+        panelView?.visibility = visibility
+        borderView?.visibility = visibility
+        if (hidden && calibrationVisible) removeCalibration()
+        Logger.info(if (hidden) "Floating overlays hidden for screen capture." else "Floating overlays restored after screen capture.")
     }
 
     private fun removeCalibrationViewsOnly() {
