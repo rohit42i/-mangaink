@@ -402,9 +402,12 @@ class FloatingPanelService : Service() {
     }
 
     private fun movePanel(deltaX: Int, deltaY: Int) {
+        val previousX = panelParams.x
+        val previousY = panelParams.y
+        val previousEdge = panelSnapEdge
         val position = OverlayPosition.clamp(
-            panelParams.x + deltaX,
-            panelParams.y + deltaY,
+            previousX + deltaX,
+            previousY + deltaY,
             (panelView?.width ?: dp(56)).coerceAtLeast(dp(56)),
             (panelView?.height ?: dp(56)).coerceAtLeast(dp(56)),
             resources.displayMetrics.widthPixels,
@@ -413,13 +416,23 @@ class FloatingPanelService : Service() {
         panelParams.x = position.x
         panelParams.y = position.y
         panelSnapEdge = -1
-        panelView?.let { updateViewLayoutSafely(it, panelParams, "floating panel snap") }
+        val updated = panelView?.let {
+            updateViewLayoutSafely(it, panelParams, "floating panel drag")
+        } ?: false
+        if (!updated) {
+            panelParams.x = previousX
+            panelParams.y = previousY
+            panelSnapEdge = previousEdge
+        }
     }
 
     private fun snapPanel() {
+        val previousX = panelParams.x
+        val previousY = panelParams.y
+        val previousEdge = panelSnapEdge
         val position = OverlayPosition.snapToNearestEdge(
-            panelParams.x,
-            panelParams.y,
+            previousX,
+            previousY,
             (panelView?.width ?: dp(56)).coerceAtLeast(dp(56)),
             (panelView?.height ?: dp(56)).coerceAtLeast(dp(56)),
             resources.displayMetrics.widthPixels,
@@ -428,8 +441,16 @@ class FloatingPanelService : Service() {
         panelParams.x = position.x
         panelParams.y = position.y
         panelSnapEdge = if (position.x == 0) EDGE_LEFT else EDGE_RIGHT
-        panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
-        persistPanelPosition()
+        val updated = panelView?.let {
+            updateViewLayoutSafely(it, panelParams, "floating panel snap")
+        } ?: false
+        if (updated) {
+            persistPanelPosition()
+        } else {
+            panelParams.x = previousX
+            panelParams.y = previousY
+            panelSnapEdge = previousEdge
+        }
     }
 
     private fun updateViewLayoutSafely(
