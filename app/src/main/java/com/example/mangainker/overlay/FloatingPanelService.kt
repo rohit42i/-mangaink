@@ -59,6 +59,7 @@ class FloatingPanelService : Service() {
     private var panelSnapEdge = -1
     private var activationReported = false
     private var captureOverlayHidden = false
+    private var layoutUpdateFailureReported = false
 
     private data class CalibrationHandle(
         val view: TextView,
@@ -217,7 +218,7 @@ class FloatingPanelService : Service() {
                 if (position.x != panelParams.x || position.y != panelParams.y) {
                     panelParams.x = position.x
                     panelParams.y = position.y
-                    runCatching { windowManager.updateViewLayout(changedView, panelParams) }
+                    updateViewLayoutSafely(changedView, panelParams, "floating panel resize")
                 }
             }
             setContent {
@@ -385,7 +386,7 @@ class FloatingPanelService : Service() {
                 MotionEvent.ACTION_MOVE -> {
                     params.x = (startX + event.rawX - downRawX).toInt().coerceAtLeast(0)
                     params.y = (startY + event.rawY - downRawY).toInt().coerceAtLeast(0)
-                    runCatching { windowManager.updateViewLayout(view, params) }
+                    updateViewLayoutSafely(view, params, "calibration handle drag")
                     val size = dp(48)
                     controller.moveCalibrationCorner(
                         index,
@@ -412,7 +413,7 @@ class FloatingPanelService : Service() {
         panelParams.x = position.x
         panelParams.y = position.y
         panelSnapEdge = -1
-        panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
+        panelView?.let { updateViewLayoutSafely(it, panelParams, "floating panel snap") }
     }
 
     private fun snapPanel() {
@@ -429,6 +430,29 @@ class FloatingPanelService : Service() {
         panelSnapEdge = if (position.x == 0) EDGE_LEFT else EDGE_RIGHT
         panelView?.let { runCatching { windowManager.updateViewLayout(it, panelParams) } }
         persistPanelPosition()
+    }
+
+    private fun updateViewLayoutSafely(
+        view: View,
+        params: WindowManager.LayoutParams,
+        operation: String
+    ): Boolean {
+        return try {
+            windowManager.updateViewLayout(view, params)
+            true
+        } catch (error: Exception) {
+            val reason = error.message ?: error.javaClass.simpleName
+            Logger.error("Overlay layout update failed ($operation): $reason")
+            if (!layoutUpdateFailureReported) {
+                layoutUpdateFailureReported = true
+                Toast.makeText(
+                    this,
+                    "Manga Inker could not update a floating control. Check Display over other apps permission.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            false
+        }
     }
 
     private fun persistPanelPosition() {
