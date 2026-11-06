@@ -79,8 +79,8 @@ jobs:
       - name: Run Android lint
         run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:lintDebug
 
-      - name: Build signed release APK
-        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:assembleRelease
+      - name: Build debug test APK and release APK
+        run: gradle --no-daemon "-PVERSION_CODE=$VERSION_CODE" "-PVERSION_NAME=$VERSION_NAME" :app:assembleDebug :app:assembleRelease
 
       - name: Verify merged manifest permissions
         shell: bash
