@@ -10,3 +10,7 @@
 .cxx/
 *.apk
 *.aab
+
+# Local release signing material must never be committed.
+.ci/*.jks
+.ci/*.keystore
