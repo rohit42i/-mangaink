@@ -389,7 +389,7 @@ class FloatingPanelService : Service() {
                     if (!updateViewLayoutSafely(view, params, "calibration handle drag")) {
                         params.x = startX
                         params.y = startY
-                        return true
+                        return@setOnTouchListener true
                     }
                     val size = dp(48)
                     controller.moveCalibrationCorner(
