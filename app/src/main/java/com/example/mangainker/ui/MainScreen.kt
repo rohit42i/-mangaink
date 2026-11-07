@@ -852,6 +852,7 @@ private fun SettingsScreen(
     updateManager: GitHubUpdateManager,
     onShowDebugLog: (Boolean) -> Unit
 ) {
+    val context = LocalContext.current
     val updateState by updateManager.state.collectAsState()
     var updateToken by remember { mutableStateOf("") }
     Column(
