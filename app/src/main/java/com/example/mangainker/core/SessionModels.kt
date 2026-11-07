@@ -18,7 +18,7 @@ data class SessionState(
     val message: String = "Import a page to begin.",
     val gestureSpeedMs: Int = 500,
     val drawingSpeedPxPerSecond: Float = 950f,
-    val panelAutoCollapseMs: Long = 8_000L,
+    val panelAutoCollapseMs: Long = 0L,
     val showDebugLog: Boolean = false,
     val restrictedSettingsConfirmed: Boolean = false,
     val isError: Boolean = false,
