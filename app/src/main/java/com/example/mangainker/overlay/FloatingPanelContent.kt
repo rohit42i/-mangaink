@@ -353,6 +353,18 @@ fun FloatingPanelContent(
                             ) { Text("Reconnect Accessibility") }
                         }
 
+                        if (state.failedPaths > 0 && !state.running) {
+                            OutlinedButton(
+                                onClick = { controller.retryTraceFromFailedPath() },
+                                enabled = state.serviceConnected && state.ibisPaintForeground &&
+                                    state.testGestureVerified && state.calibration != null,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Text("Retry from first failed path (${state.failedPaths})")
+                            }
+                        }
+
                         if (state.scanInProgress) {
                             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                                 LinearProgressIndicator(
