@@ -287,6 +287,52 @@ fun FloatingPanelContent(
                             maxLines = 3
                         )
 
+                        if (state.showResultDialog) {
+                            Surface(
+                                color = InkPalette.raised,
+                                shape = RoundedCornerShape(14.dp),
+                                border = BorderStroke(1.dp, InkPalette.outline),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(11.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        "Check the test stroke",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "Did the test line appear correctly on the ibisPaint canvas, and have you undone it?",
+                                        color = InkPalette.secondaryText,
+                                        fontSize = 11.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                    Button(
+                                        onClick = { controller.recordTestResult("Yes") },
+                                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = InkPalette.accent)
+                                    ) {
+                                        Text("Yes, visible and undone")
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                                        OutlinedButton(
+                                            onClick = { controller.recordTestResult("No") },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) { Text("No") }
+                                        OutlinedButton(
+                                            onClick = { controller.recordTestResult("Partly") },
+                                            modifier = Modifier.weight(1f),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) { Text("Not sure") }
+                                    }
+                                }
+                            }
+                        }
+
                         if (state.resumeAvailable && !state.serviceConnected) {
                             Button(
                                 onClick = onReconnectAccessibility,
@@ -378,7 +424,7 @@ fun FloatingPanelContent(
                                         if (state.testGestureVerified) SessionCommand.Start else SessionCommand.RunTest
                                     )
                                 },
-                                enabled = !state.running && !state.calibrating && !state.scanInProgress,
+                                enabled = !state.running && !state.calibrating && !state.scanInProgress && !state.showResultDialog,
                                 modifier = Modifier.weight(1.2f).height(44.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
