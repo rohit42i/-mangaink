@@ -57,6 +57,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
 import android.graphics.Bitmap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -1010,10 +1012,18 @@ private fun SettingsScreen(
                         onValueChange = { updateToken = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("One-time update access token") },
-                        supportingText = { Text("One-time setup for this private update channel. Read-only access is stored securely on this phone.") },
+                        supportingText = { Text("Create a fine-grained token for rohit42i/-mangaink only. Grant Contents: Read-only. No write or account permissions are needed.") },
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true
                     )
+                    TextButton(
+                        onClick = {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/personal-access-tokens/new"))
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Create read-only GitHub token") }
                     Button(
                         onClick = {
                             updateManager.saveTokenAndCheck(updateToken)
