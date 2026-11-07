@@ -869,8 +869,8 @@ private fun SettingsScreen(
                 Slider(
                     value = state.thresholdOffset.toFloat(),
                     onValueChange = { controller.setThresholdOffset(it.toInt()) },
-                    valueRange = -60f..60f,
-                    steps = 23
+                    valueRange = -30f..30f,
+                    steps = 59
                 )
                 Text("Minimum component size: " + state.minComponentPixels + " pixels", color = InkPalette.secondaryText)
                 Slider(
