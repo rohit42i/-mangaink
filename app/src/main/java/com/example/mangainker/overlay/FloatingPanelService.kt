@@ -571,6 +571,15 @@ class FloatingPanelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_TURN_OFF) {
             turnOffOverlay()
+        } else if (
+            OverlayActivation.isRequested(this) &&
+            Settings.canDrawOverlays(this) &&
+            panelView?.isAttachedToWindow == true
+        ) {
+            // A visible Activity may request service reconciliation after process/UI
+            // recreation. Refresh the observable state even when this Service instance
+            // was already alive and Android only delivered onStartCommand.
+            OverlayActivation.serviceStarted()
         }
         return START_STICKY
     }
