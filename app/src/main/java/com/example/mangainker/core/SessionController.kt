@@ -560,14 +560,34 @@ class SessionController(context: Context) {
     }
 
     fun setScanRegion(left: Float, top: Float, right: Float, bottom: Float) {
+        val snapshot = mutableState.value
+        if (!snapshot.selectionMode || snapshot.running || snapshot.scanInProgress ||
+            snapshot.captureInProgress || snapshot.calibrating
+        ) {
+            return
+        }
+
         val l = left.coerceIn(0f, 1f)
         val t = top.coerceIn(0f, 1f)
         val r = right.coerceIn(0f, 1f)
         val b = bottom.coerceIn(0f, 1f)
         if (r - l < 0.015f || b - t < 0.015f) {
-            mutableState.update { it.copy(selectionMode = false, isError = true, scanStatus = "The selected area is too small. Drag a larger rectangle.") }
+            mutableState.update {
+                it.copy(
+                    selectionMode = false,
+                    isError = true,
+                    scanStatus = "The selected area is too small. Drag a larger rectangle."
+                )
+            }
             return
         }
+
+        lastMappedTracePaths = null
+        pendingResumePaths = null
+        pendingResumeOffset = 0
+        calibrationBackupAvailable = false
+        calibrationBeforeEdit = null
+        testGestureBeforeEdit = false
         mutableState.update {
             it.copy(
                 selectedLeft = l,
@@ -575,8 +595,28 @@ class SessionController(context: Context) {
                 selectedRight = r,
                 selectedBottom = b,
                 selectionMode = false,
+                paths = emptyList(),
+                foregroundPixels = 0,
+                skeletonPixels = 0,
+                discardedComponents = 0,
+                threshold = 0,
+                scanLeftPx = 0,
+                scanTopPx = 0,
+                scanWidthPx = 0,
+                scanHeightPx = 0,
+                calibration = null,
+                calibrationCorners = emptyList(),
+                calibrating = false,
+                testGestureVerified = false,
+                currentPath = 0,
+                completedPaths = 0,
+                totalPaths = 0,
+                failedPaths = 0,
+                pathLog = emptyList(),
+                resumeAvailable = false,
+                progress = 0f,
                 scanStatus = "Selected region ready. Scan selected area to extract its outlines.",
-                message = "Selected scan region: " + ((r - l) * 100).toInt() + "% × " + ((b - t) * 100).toInt() + "% of the page.",
+                message = "Selected scan region: " + ((r - l) * 100).toInt() + "% × " + ((b - t) * 100).toInt() + "% of the page. Scan this region before tracing.",
                 isError = false
             )
         }
