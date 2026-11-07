@@ -4,8 +4,9 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -99,19 +100,31 @@ fun FloatingPanelContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
-                    modifier = Modifier.size(if (expanded) 32.dp else 56.dp)
+                    modifier = Modifier.size(if (expanded) 44.dp else 56.dp)
                         .pointerInput(Unit) {
+                            var remainderX = 0f
+                            var remainderY = 0f
                             detectDragGestures(
                                 onDragEnd = onSnap,
+                                onDragCancel = onSnap,
                                 onDrag = { change, dragAmount ->
                                     change.consume()
-                                    onDrag(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
+                                    // Keep fractional pixel movement instead of dropping it on every event.
+                                    val accumulatedX = remainderX + dragAmount.x
+                                    val accumulatedY = remainderY + dragAmount.y
+                                    val deltaX = accumulatedX.toInt()
+                                    val deltaY = accumulatedY.toInt()
+                                    remainderX = accumulatedX - deltaX
+                                    remainderY = accumulatedY - deltaY
+                                    if (deltaX != 0 || deltaY != 0) onDrag(deltaX, deltaY)
                                 }
                             )
                         }
-                        .pointerInput(expanded) {
-                            detectTapGestures(onTap = { if (!expanded) expanded = true })
-                        },
+                        .clickable(
+                            enabled = !expanded,
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) { expanded = true },
                     contentAlignment = Alignment.Center
                 ) {
                     if (expanded) {
