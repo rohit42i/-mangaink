@@ -963,7 +963,7 @@ private fun SettingsScreen(
 
         Card(colors = CardDefaults.cardColors(containerColor = InkPalette.surface), shape = RoundedCornerShape(12.dp)) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("GitHub app updates", style = MaterialTheme.typography.titleMedium)
+                Text("App updates", style = MaterialTheme.typography.titleMedium)
                 Text("Installed version: " + updateState.currentVersionName, color = InkPalette.secondaryText, style = MaterialTheme.typography.bodySmall)
                 Text(
                     "Last checked: " + (updateState.lastCheckedAtMs?.let {
@@ -1009,8 +1009,8 @@ private fun SettingsScreen(
                         value = updateToken,
                         onValueChange = { updateToken = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Fine-grained GitHub token") },
-                        supportingText = { Text("One-time setup. Contents: Read only, limited to rohit42i/-mangaink.") },
+                        label = { Text("One-time update access token") },
+                        supportingText = { Text("One-time setup for this private update channel. Read-only access is stored securely on this phone.") },
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true
                     )
@@ -1027,7 +1027,7 @@ private fun SettingsScreen(
                         onClick = updateManager::checkForUpdate,
                         enabled = !updateState.checking && !updateState.downloading,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text(if (updateState.checking) "Checking…" else "Check GitHub for updates") }
+                    ) { Text(if (updateState.checking) "Checking…" else "Check for updates") }
                     if (updateState.updateAvailable) {
                         Button(
                             onClick = updateManager::installUpdate,
@@ -1038,7 +1038,7 @@ private fun SettingsScreen(
                     TextButton(onClick = updateManager::clearToken) { Text("Remove GitHub update access") }
                 }
                 Text(
-                    "The app checks the private GitHub release and downloads newer builds itself. Android still asks you to approve each APK installation. A one-time read-only token is stored encrypted by Android Keystore.",
+                    "Manga Inker checks for new official releases automatically and downloads verified updates in the background. You only need to approve installation in Android. The private repository requires a one-time read-only access token, stored encrypted with Android Keystore.",
                     color = InkPalette.secondaryText,
                     style = MaterialTheme.typography.bodySmall
                 )
