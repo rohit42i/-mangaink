@@ -208,9 +208,22 @@ fun FloatingPanelContent(
                                     }
                                 )
                                 DropdownMenuItem(
+                                    text = { Text("Scan selected area") },
+                                    enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running &&
+                                        !state.calibrating && (state.selectedLeft > 0f || state.selectedTop > 0f ||
+                                        state.selectedRight < 1f || state.selectedBottom < 1f),
+                                    onClick = { moreExpanded = false; controller.scanPage() }
+                                )
+                                DropdownMenuItem(
                                     text = { Text("Scan full page") },
                                     enabled = state.sourceBitmap != null && !state.scanInProgress && !state.running && !state.calibrating,
                                     onClick = { moreExpanded = false; controller.scanFullPage() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Retry failed trace paths") },
+                                    enabled = state.failedPaths > 0 && !state.running && state.serviceConnected &&
+                                        state.ibisPaintForeground && state.testGestureVerified && state.calibration != null,
+                                    onClick = { moreExpanded = false; controller.retryTraceFromFailedPath() }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Calibrate page corners") },
