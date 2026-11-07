@@ -940,6 +940,10 @@ class SessionController(context: Context) {
             mutableState.update { it.copy(isError = true, message = "There is no failed trace path to retry.") }
             return
         }
+        if (snapshot.running) {
+            mutableState.update { it.copy(isError = true, message = "Stop the current trace before retrying failed paths.") }
+            return
+        }
         if (!snapshot.serviceConnected || !snapshot.ibisPaintForeground) {
             mutableState.update { it.copy(isError = true, message = "Reconnect Accessibility and bring ibisPaint to the foreground before retrying.") }
             return
@@ -1054,7 +1058,18 @@ class SessionController(context: Context) {
         completedOffset: Int = 0,
         allPaths: List<List<GesturePoint>> = paths
     ) {
-        val activeDispatcher = dispatcher ?: return
+        val activeDispatcher = dispatcher
+        if (activeDispatcher == null) {
+            mutableState.update {
+                it.copy(
+                    serviceConnected = false,
+                    ibisPaintForeground = false,
+                    isError = true,
+                    message = "Accessibility disconnected before the gesture could start. Reconnect it, then try again."
+                )
+            }
+            return
+        }
         activeTracePaths = allPaths
         activeTraceIsTest = isTest
         val runId = runIds.incrementAndGet()
