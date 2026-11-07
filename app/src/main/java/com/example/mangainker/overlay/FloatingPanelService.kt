@@ -20,8 +20,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import androidx.lifecycle.ViewTreeLifecycleOwner
-import androidx.savedstate.ViewTreeSavedStateRegistryOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -173,8 +173,8 @@ class FloatingPanelService : Service() {
     }
 
     private fun prepareComposeView(view: ComposeView) {
-        ViewTreeLifecycleOwner.set(view, overlayComposeOwner)
-        ViewTreeSavedStateRegistryOwner.set(view, overlayComposeOwner)
+        view.setViewTreeLifecycleOwner(overlayComposeOwner)
+        view.setViewTreeSavedStateRegistryOwner(overlayComposeOwner)
         view.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
     }
 
