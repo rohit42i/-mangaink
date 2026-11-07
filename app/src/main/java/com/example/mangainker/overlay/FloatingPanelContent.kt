@@ -62,7 +62,6 @@ import com.example.mangainker.core.SessionCommand
 import com.example.mangainker.core.SessionController
 import com.example.mangainker.core.SessionState
 import com.example.mangainker.ui.InkPalette
-import kotlin.math.roundToInt
 
 @Composable
 fun FloatingPanelContent(
@@ -105,6 +104,7 @@ fun FloatingPanelContent(
                             var remainderX = 0f
                             var remainderY = 0f
                             detectDragGestures(
+                                onDragStart = { remainderX = 0f; remainderY = 0f },
                                 onDragEnd = onSnap,
                                 onDragCancel = onSnap,
                                 onDrag = { change, dragAmount ->
