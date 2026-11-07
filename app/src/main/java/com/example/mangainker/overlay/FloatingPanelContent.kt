@@ -545,6 +545,7 @@ private fun readinessHint(state: SessionState): String = when {
 
 private fun overlayStage(state: SessionState): String = when {
     state.resumeAvailable && !state.serviceConnected -> "Reconnect needed"
+    state.showResultDialog -> "Confirm test"
     state.captureInProgress -> "Capturing"
     state.isError -> "Needs attention"
     state.scanInProgress -> "Scanning"
@@ -569,6 +570,7 @@ private fun stateDot(state: SessionState): Color = when {
 
 private fun panelStatus(state: SessionState): String = when {
     state.resumeAvailable && !state.serviceConnected -> "Reconnect Accessibility"
+    state.showResultDialog -> "Check test stroke"
     state.captureInProgress -> "Capturing screen"
     state.isError -> "Needs attention"
     state.scanInProgress -> "Scanning page"
