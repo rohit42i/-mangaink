@@ -20,6 +20,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import androidx.lifecycle.ViewTreeLifecycleOwner
+import androidx.savedstate.ViewTreeSavedStateRegistryOwner
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -60,6 +62,8 @@ class FloatingPanelService : Service() {
     private var activationReported = false
     private var captureOverlayHidden = false
     private var layoutUpdateFailureReported = false
+    private var panelLayoutUpdatePosted = false
+    private val overlayComposeOwner = OverlayComposeOwner()
 
     private data class CalibrationHandle(
         val view: TextView,
@@ -68,34 +72,44 @@ class FloatingPanelService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (!OverlayActivation.isRequested(this)) {
-            stopSelf()
-            return
-        }
-        if (!Settings.canDrawOverlays(this)) {
-            OverlayActivation.awaitingOverlayPermission()
-            Toast.makeText(this, "Allow display over other apps first.", Toast.LENGTH_LONG).show()
-            stopSelf()
-            return
-        }
-
         try {
+            // ComposeView needs lifecycle and saved-state owners in its own WindowManager window.
+            overlayComposeOwner.attach()
+            if (!OverlayActivation.isRequested(this)) {
+                stopSelf()
+                return
+            }
+            if (!Settings.canDrawOverlays(this)) {
+                OverlayActivation.awaitingOverlayPermission()
+                Toast.makeText(this, "Allow display over other apps first.", Toast.LENGTH_LONG).show()
+                stopSelf()
+                return
+            }
+
             controller = (application as MangaInkerApp).sessionController
             windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
             startAsForeground()
+            overlayComposeOwner.start()
             addRunningBorder()
             addPanel()
 
             serviceScope.launch {
                 controller.state.collect { state ->
-                    if (state.captureInProgress) {
-                        setCaptureOverlayHidden(true)
-                    } else {
-                        setCaptureOverlayHidden(false)
-                        when {
-                            state.calibrating && !calibrationVisible -> showCalibration()
-                            !state.calibrating && calibrationVisible -> removeCalibration()
+                    try {
+                        if (state.captureInProgress) {
+                            setCaptureOverlayHidden(true)
+                        } else {
+                            setCaptureOverlayHidden(false)
+                            when {
+                                state.calibrating && !calibrationVisible -> showCalibration()
+                                !state.calibrating && calibrationVisible -> removeCalibration()
+                            }
                         }
+                    } catch (error: Exception) {
+                        val reason = error.message ?: error.javaClass.simpleName
+                        Logger.error("Floating overlay state update failed: $reason")
+                        OverlayActivation.serviceStartFailed("Floating controls could not update: $reason")
+                        stopSelf()
                     }
                 }
             }
@@ -158,9 +172,15 @@ class FloatingPanelService : Service() {
         }
     }
 
+    private fun prepareComposeView(view: ComposeView) {
+        ViewTreeLifecycleOwner.set(view, overlayComposeOwner)
+        ViewTreeSavedStateRegistryOwner.set(view, overlayComposeOwner)
+        view.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+    }
+
     private fun addRunningBorder() {
         val view = ComposeView(this).apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            this@FloatingPanelService.prepareComposeView(this)
             setContent {
                 MangaInkerTheme {
                     val state by controller.state.collectAsState()
@@ -197,7 +217,7 @@ class FloatingPanelService : Service() {
 
     private fun addPanel() {
         val view = ComposeView(this).apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+            this@FloatingPanelService.prepareComposeView(this)
             addOnLayoutChangeListener { changedView, _, _, _, _, _, _, _, _ ->
                 if (!this@FloatingPanelService::panelParams.isInitialized) return@addOnLayoutChangeListener
                 val panelWidth = changedView.width.coerceAtLeast(dp(56))
@@ -218,7 +238,18 @@ class FloatingPanelService : Service() {
                 if (position.x != panelParams.x || position.y != panelParams.y) {
                     panelParams.x = position.x
                     panelParams.y = position.y
-                    updateViewLayoutSafely(changedView, panelParams, "floating panel resize")
+                    // Do not re-enter WindowManager while Compose is measuring its animated size.
+                    if (!panelLayoutUpdatePosted) {
+                        panelLayoutUpdatePosted = true
+                        changedView.post {
+                            panelLayoutUpdatePosted = false
+                            if (panelView === changedView && changedView.isAttachedToWindow &&
+                                this@FloatingPanelService::panelParams.isInitialized
+                            ) {
+                                updateViewLayoutSafely(changedView, panelParams, "floating panel resize")
+                            }
+                        }
+                    }
                 }
             }
             setContent {
@@ -541,7 +572,7 @@ class FloatingPanelService : Service() {
         if (intent?.action == ACTION_TURN_OFF) {
             turnOffOverlay()
         }
-        return START_NOT_STICKY
+        return START_STICKY
     }
 
     override fun onDestroy() {
@@ -559,6 +590,7 @@ class FloatingPanelService : Service() {
             }
         }
         serviceScope.cancel()
+        overlayComposeOwner.destroy()
         removeCalibration()
         panelView?.let { runCatching { windowManager.removeView(it) } }
         borderView?.let { runCatching { windowManager.removeView(it) } }

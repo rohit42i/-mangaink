@@ -27,6 +27,8 @@ Do not mark a device test as passed until the visible result has been checked on
 - [ ] On Android 13+, allow restricted settings for this trusted build if requested.
 - [ ] Enable Manga Inker in Accessibility settings.
 - [ ] Allow Display over other apps.
+- [ ] Cold-start the floating panel and verify the Compose overlay opens without a lifecycle-owner crash.
+- [ ] Expand, collapse and reopen the floating controls repeatedly; verify the overlay service stays running.
 - [ ] Start the floating panel and verify its persistent notification.
 - [ ] Drag the compact bubble; verify it stays fully inside the screen and snaps to either edge.
 - [ ] Expand a bubble snapped to the right edge; verify the full panel remains visible and aligned to the right edge.
