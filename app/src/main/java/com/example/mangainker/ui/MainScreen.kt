@@ -1112,12 +1112,36 @@ private fun StatusLine(label: String, value: String) {
 @Composable
 private fun LineArtMark(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        val path = Path().apply {
-            moveTo(size.width * 0.18f, size.height * 0.78f)
-            cubicTo(size.width * 0.25f, size.height * 0.15f, size.width * 0.75f, size.height * 0.15f, size.width * 0.82f, size.height * 0.78f)
-            moveTo(size.width * 0.35f, size.height * 0.5f)
-            cubicTo(size.width * 0.44f, size.height * 0.28f, size.width * 0.57f, size.height * 0.72f, size.width * 0.67f, size.height * 0.5f)
+        drawRoundRect(
+            color = InkPalette.raised,
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.width * 0.24f)
+        )
+        val page = Path().apply {
+            moveTo(size.width * 0.28f, size.height * 0.17f)
+            lineTo(size.width * 0.59f, size.height * 0.17f)
+            lineTo(size.width * 0.73f, size.height * 0.31f)
+            lineTo(size.width * 0.73f, size.height * 0.79f)
+            lineTo(size.width * 0.28f, size.height * 0.79f)
+            close()
         }
-        drawPath(path, color = InkPalette.accent, style = Stroke(width = 2.dp.toPx()))
+        drawPath(page, color = InkPalette.primaryText)
+        val fold = Path().apply {
+            moveTo(size.width * 0.59f, size.height * 0.17f)
+            lineTo(size.width * 0.59f, size.height * 0.31f)
+            lineTo(size.width * 0.73f, size.height * 0.31f)
+            close()
+        }
+        drawPath(fold, color = InkPalette.accent)
+        drawLine(InkPalette.raised, Offset(size.width * 0.37f, size.height * 0.43f), Offset(size.width * 0.62f, size.height * 0.43f), 1.5.dp.toPx())
+        drawLine(InkPalette.raised, Offset(size.width * 0.37f, size.height * 0.53f), Offset(size.width * 0.57f, size.height * 0.53f), 1.5.dp.toPx())
+        val pen = Path().apply {
+            moveTo(size.width * 0.64f, size.height * 0.57f)
+            lineTo(size.width * 0.73f, size.height * 0.66f)
+            lineTo(size.width * 0.52f, size.height * 0.84f)
+            lineTo(size.width * 0.43f, size.height * 0.87f)
+            lineTo(size.width * 0.46f, size.height * 0.78f)
+            close()
+        }
+        drawPath(pen, color = InkPalette.accent)
     }
 }
