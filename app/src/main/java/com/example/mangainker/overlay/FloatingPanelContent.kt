@@ -609,3 +609,15 @@ private fun panelStatus(state: SessionState): String = when {
     state.sourceBitmap != null -> "Page loaded"
     else -> "Ready when you are"
 }
+
+internal fun canRunOverlayPrimaryAction(state: SessionState): Boolean =
+    !state.running &&
+        !state.paused &&
+        !state.calibrating &&
+        !state.scanInProgress &&
+        !state.captureInProgress &&
+        !state.showResultDialog &&
+        state.serviceConnected &&
+        state.ibisPaintForeground &&
+        state.calibration != null &&
+        (!state.testGestureVerified || state.paths.isNotEmpty())
