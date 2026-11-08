@@ -180,6 +180,13 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+        handleCaptureRequest()
+    }
+
+    private fun handleCaptureRequest() {
+        if (!intent.getBooleanExtra(EXTRA_START_CAPTURE, false)) return
+        intent.removeExtra(EXTRA_START_CAPTURE)
+        window.decorView.post { beginScreenCapture() }
     }
 
 
@@ -291,6 +298,7 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         navigateToSettings = intent.getBooleanExtra(EXTRA_NAVIGATE_SETTINGS, false)
         navigationRequest++
+        handleCaptureRequest()
     }
 
     override fun onResume() {
@@ -309,6 +317,7 @@ class MainActivity : ComponentActivity() {
     }
     companion object {
         const val EXTRA_NAVIGATE_SETTINGS = "manga_inker_navigate_settings"
+        const val EXTRA_START_CAPTURE = "manga_inker_start_capture"
     }
 
 }
