@@ -268,6 +268,21 @@ class FloatingPanelService : Service() {
                         onReconnectAccessibility = {
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         },
+                        onOpenIbisPaint = {
+                            val packages = listOf("jp.ne.ibis.ibispaintx.app", "jp.ne.ibis.ibispaint.app")
+                            val launchIntent = packages.firstNotNullOfOrNull { packageName ->
+                                packageManager.getLaunchIntentForPackage(packageName)
+                            }
+                            if (launchIntent != null) {
+                                startActivity(launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            } else {
+                                Toast.makeText(
+                                    this@FloatingPanelService,
+                                    "ibisPaint was not found. Install it or open it manually.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        },
                         onOpenSettings = {
                             startActivity(
                                 Intent(this@FloatingPanelService, MainActivity::class.java)
