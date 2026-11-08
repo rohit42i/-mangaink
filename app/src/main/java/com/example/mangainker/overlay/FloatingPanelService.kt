@@ -265,6 +265,13 @@ class FloatingPanelService : Service() {
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             )
                         },
+                        onCaptureScreen = {
+                            startActivity(
+                                Intent(this@FloatingPanelService, MainActivity::class.java)
+                                    .putExtra(MainActivity.EXTRA_START_CAPTURE, true)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            )
+                        },
                         onReconnectAccessibility = {
                             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         },
