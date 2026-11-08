@@ -76,6 +76,7 @@ fun FloatingPanelContent(
     onSnap: () -> Unit,
     onClose: () -> Unit,
     onOpenMainScreen: () -> Unit,
+    onCaptureScreen: () -> Unit,
     onReconnectAccessibility: () -> Unit,
     onOpenIbisPaint: () -> Unit,
     onOpenSettings: () -> Unit
@@ -211,6 +212,11 @@ fun FloatingPanelContent(
                                 DropdownMenuItem(
                                     text = { Text("Open ibisPaint") },
                                     onClick = { moreExpanded = false; onOpenIbisPaint() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Capture ibisPaint screen") },
+                                    enabled = !state.running && !state.scanInProgress && !state.captureInProgress && !state.calibrating,
+                                    onClick = { moreExpanded = false; onCaptureScreen() }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Select scan area") },
