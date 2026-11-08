@@ -463,11 +463,7 @@ fun FloatingPanelContent(
                             }
                         }
 
-                        val canRunPrimaryAction = !state.running && !state.paused &&
-                            !state.calibrating && !state.scanInProgress && !state.captureInProgress &&
-                            !state.showResultDialog && state.serviceConnected && state.ibisPaintForeground &&
-                            state.calibration != null &&
-                            if (state.testGestureVerified) state.paths.isNotEmpty() else true
+                        val canRunPrimaryAction = canRunOverlayPrimaryAction(state)
 
                         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             Button(
