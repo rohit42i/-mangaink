@@ -77,6 +77,7 @@ fun FloatingPanelContent(
     onClose: () -> Unit,
     onOpenMainScreen: () -> Unit,
     onReconnectAccessibility: () -> Unit,
+    onOpenIbisPaint: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
     val state by controller.state.collectAsState()
@@ -204,8 +205,12 @@ fun FloatingPanelContent(
                                 onDismissRequest = { moreExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Import page / open app") },
+                                    text = { Text("Open app / import page") },
                                     onClick = { moreExpanded = false; onOpenMainScreen() }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Open ibisPaint") },
+                                    onClick = { moreExpanded = false; onOpenIbisPaint() }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Select scan area") },
@@ -342,7 +347,7 @@ fun FloatingPanelContent(
                             }
                         }
 
-                        if (state.resumeAvailable && !state.serviceConnected) {
+                        if (!state.serviceConnected) {
                             Button(
                                 onClick = onReconnectAccessibility,
                                 modifier = Modifier.fillMaxWidth(),
@@ -350,7 +355,21 @@ fun FloatingPanelContent(
                                     containerColor = InkPalette.error,
                                     contentColor = Color.White
                                 )
-                            ) { Text("Reconnect Accessibility") }
+                            ) { Text(if (state.resumeAvailable) "Reconnect Accessibility to resume" else "Enable Accessibility to draw") }
+                        } else if (!state.ibisPaintForeground && !state.running) {
+                            OutlinedButton(
+                                onClick = onOpenIbisPaint,
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Open ibisPaint") }
+                        }
+
+                        if (state.paths.isNotEmpty() && state.calibration == null &&
+                            !state.calibrating && !state.running && !state.scanInProgress
+                        ) {
+                            OutlinedButton(
+                                onClick = { controller.beginCalibration() },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("Calibrate page corners") }
                         }
 
                         if (state.failedPaths > 0 && !state.running) {
@@ -438,6 +457,12 @@ fun FloatingPanelContent(
                             }
                         }
 
+                        val canRunPrimaryAction = !state.running && !state.paused &&
+                            !state.calibrating && !state.scanInProgress && !state.captureInProgress &&
+                            !state.showResultDialog && state.serviceConnected && state.ibisPaintForeground &&
+                            state.calibration != null &&
+                            if (state.testGestureVerified) state.paths.isNotEmpty() else true
+
                         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                             Button(
                                 onClick = {
@@ -445,7 +470,7 @@ fun FloatingPanelContent(
                                         if (state.testGestureVerified) SessionCommand.Start else SessionCommand.RunTest
                                     )
                                 },
-                                enabled = !state.running && !state.calibrating && !state.scanInProgress && !state.showResultDialog,
+                                enabled = canRunPrimaryAction,
                                 modifier = Modifier.weight(1.2f).height(44.dp),
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
