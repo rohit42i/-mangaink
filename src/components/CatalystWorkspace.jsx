@@ -121,7 +121,7 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
               <button className="cloud-icon-button" onClick={handleSignOut} title="Sign out"><LogOut size={15} /></button>
             </>
           ) : (
-            <button className="cloud-button cloud-primary" onClick={() => available ? setLoginOpen(true) : showMessage('This preview is not hosted on Zoho Catalyst yet. Upload the Catalyst web-client ZIP to enable account sign-in.', true)}><LogIn size={14} /> Sign in</button>
+            <button className="cloud-button cloud-primary" disabled={!available} onClick={() => setLoginOpen(true)}><LogIn size={14} /> {available ? 'Sign in' : 'Catalyst hosting required'}</button>
           )}
         </div>
       </div>
