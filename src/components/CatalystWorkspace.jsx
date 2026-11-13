@@ -5,7 +5,7 @@ import {
   listSavedProjects, listProcessingJobs, saveProjectToCloud, saveUserSettings, signOutCatalyst,
   syncUserProfile, loadUserSettings,
 } from '../services/catalyst.js';
-import { deleteLocalProject, listLocalHistory, listLocalProjects, loadLocalProject, saveLocalProject, saveLocalSettings } from '../services/localWorkspace.js';
+import { deleteLocalProject, listLocalHistory, listLocalProjects, loadLocalProject, loadLocalSettings, saveLocalProject, saveLocalSettings } from '../services/localWorkspace.js';
 
 function errorText(error) { return error?.message || 'Something went wrong. Please try again.'; }
 
@@ -14,7 +14,6 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [jobs, setJobs] = useState([]);
-  const [localMode, setLocalMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
@@ -26,15 +25,10 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
 
   useEffect(() => {
     let active = true;
-    Promise.all([initializeCatalyst(), listLocalProjects(), listLocalHistory()]).then(async ([session, localSaved, localHistory]) => {
+    initializeCatalyst().then(async session => {
       if (!active) return;
       setAvailable(session.available);
       setUser(session.user);
-      setLocalMode(!session.authenticated);
-      if (!session.authenticated) {
-        setProjects(localSaved);
-        setJobs(localHistory);
-      }
       if (session.authenticated && session.user) {
         try {
           await syncUserProfile(session.user);
@@ -44,8 +38,30 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
           setJobs(recentJobs);
           if (preferences && typeof preferences === 'object') onRestoreSettings?.(preferences);
         } catch (error) { if (active) showMessage(errorText(error), true); }
+      } else {
+        const [localSaved, localHistory, localPreferences] = await Promise.all([
+          listLocalProjects().catch(() => []),
+          listLocalHistory().catch(() => []),
+          loadLocalSettings().catch(() => null),
+        ]);
+        if (!active) return;
+        setProjects(localSaved);
+        setJobs(localHistory);
+        if (localPreferences && typeof localPreferences === 'object') onRestoreSettings?.(localPreferences);
       }
-    }).catch(error => { if (active) showMessage(errorText(error), true); });
+    }).catch(async error => {
+      if (!active) return;
+      showMessage(errorText(error), true);
+      const [localSaved, localHistory, localPreferences] = await Promise.all([
+        listLocalProjects().catch(() => []),
+        listLocalHistory().catch(() => []),
+        loadLocalSettings().catch(() => null),
+      ]);
+      if (!active) return;
+      setProjects(localSaved);
+      setJobs(localHistory);
+      if (localPreferences && typeof localPreferences === 'object') onRestoreSettings?.(localPreferences);
+    });
     return () => { active = false; };
   }, []);
 
