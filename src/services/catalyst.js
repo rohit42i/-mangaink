@@ -43,12 +43,12 @@ export async function initializeCatalyst() {
 export async function beginCatalystSignIn(containerId) {
   await zcAuth.init();
   return zcAuth.signIn(containerId, {
-    redirectUrl: window.location.pathname + window.location.search,
+    redirectUrl: '/',
   });
 }
 
 export async function signOutCatalyst() {
-  await zcAuth.signOut(window.location.pathname + window.location.search);
+  await zcAuth.signOut('/');
 }
 
 function clients() {
