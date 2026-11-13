@@ -1,0 +1,7 @@
+{
+  "name": "mangainker-web",
+  "version": "1.0.0",
+  "homepage": "index.html",
+  "login_redirect": "index.html",
+  "description": "MangaInker browser-based manga line-art studio"
+}
