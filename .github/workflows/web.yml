@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mangainker-pages
+  group: mangainker-pages-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
