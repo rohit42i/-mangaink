@@ -149,6 +149,7 @@ export function parseSvgDocument(svgText) {
   const strokeMatch = String(svgText).match(/stroke-width=["']([\d.]+)/i);
   const strokeWidth = strokeMatch ? Number(strokeMatch[1]) : 1.35;
   const whiteBackground = /<rect\b[^>]*fill=["']#fff["']/i.test(svgText);
+  const smooth = /stroke-linecap=["']round["']/i.test(svgText);
   const segments = [];
   const pathPattern = /<path\b[^>]*\bd=["']([^"']*)["'][^>]*>/gi;
   let pathMatch;
@@ -176,6 +177,7 @@ export function parseSvgDocument(svgText) {
     foreground: segments.length,
     auto: 127,
     strokeWidth,
+    smooth,
     whiteBackground,
   };
 }
