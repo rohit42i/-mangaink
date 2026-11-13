@@ -86,6 +86,22 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
     finally { setBusy(false); }
   }
 
+  async function handleLoadHistory(job) {
+    const key = job?.input_object_key;
+    if (!key) { showMessage('This history entry has no source image.', true); return; }
+    setBusy(true);
+    try {
+      const blob = await downloadProjectSource(key);
+      const extension = key.split('.').pop()?.toLowerCase() || 'png';
+      const fileType = blob.type || (extension === 'jpg' ? 'image/jpeg' : 'image/' + extension);
+      const file = new File([blob], key.split('/').pop().replace(/^source-/, 'manga-page.'), { type: fileType });
+      onLoadFile?.(file);
+      setHistoryOpen(false);
+      showMessage('Restored the source image from processing history.');
+    } catch (error) { showMessage(errorText(error), true); }
+    finally { setBusy(false); }
+  }
+
   async function handleDelete(row) {
     if (!window.confirm('Delete "' + (row.project_name || 'Untitled project') + '" and its stored files?')) return;
     setBusy(true);
@@ -136,8 +152,10 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
           <div className="cloud-projects-heading"><b>Processing history</b><button className="cloud-icon-button" onClick={handleRefresh} disabled={busy} title="Refresh history"><RefreshCw size={14} /></button></div>
           {jobs.length ? jobs.map(job => (
             <div className="cloud-project" key={job.ROWID}>
-              <span className="cloud-project-thumb"><History size={15} /></span>
-              <span className="cloud-history-info"><b>{String(job.input_object_key || 'Manga page').split('/').pop().replace(/^source-/, '')}</b><small>{job.created_at || job.CREATEDTIME || 'Processing record'} · {job.status || 'saved'}</small></span>
+              <button className="cloud-project-load" onClick={() => handleLoadHistory(job)} disabled={busy || !job.input_object_key}>
+                <span className="cloud-project-thumb"><History size={15} /></span>
+                <span className="cloud-history-info"><b>{String(job.input_object_key || 'Manga page').split('/').pop().replace(/^source-/, '')}</b><small>{job.created_at || job.CREATEDTIME || 'Processing record'} · {job.status || 'saved'}</small></span>
+              </button>
             </div>
           )) : <p className="cloud-empty">No processing records yet. Save a processed page to create your first history entry.</p>}
         </div>
