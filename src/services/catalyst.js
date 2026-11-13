@@ -1,4 +1,4 @@
-import { zcAuth, UserManagement } from '@zcatalyst/auth/web';
+import { zcAuth } from '@zcatalyst/auth/web';
 import { Datastore } from '@zcatalyst/datastore';
 import { Stratus } from '@zcatalyst/stratus';
 
@@ -9,7 +9,6 @@ const SETTINGS_TABLE = 'MI_UserSettings';
 const JOB_TABLE = 'MI_ProcessingJobs';
 
 let initPromise;
-let userManagement;
 let datastore;
 let bucket;
 
@@ -19,11 +18,9 @@ function isCatalystHosted() {
 }
 
 async function getSession() {
-  await zcAuth.init();
-  const authenticated = await zcAuth.isUserAuthenticated();
-  if (!authenticated) return { authenticated: false, user: null };
-  userManagement ??= new UserManagement();
-  const user = await userManagement.getCurrentUser();
+  const authenticatedUser = await zcAuth.isUserAuthenticated();
+  if (!authenticatedUser) return { authenticated: false, user: null };
+  const user = await zcAuth.getProjectUserDetails();
   return { authenticated: true, user };
 }
 
@@ -41,7 +38,6 @@ export async function initializeCatalyst() {
 }
 
 export async function beginCatalystSignIn(containerId) {
-  await zcAuth.init();
   return zcAuth.signIn(containerId, {
     redirectUrl: '/',
   });
