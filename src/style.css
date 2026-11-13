@@ -61,3 +61,22 @@
 @media(max-width:780px){.mi-floating-tools{right:14px;bottom:14px}.mi-floating-trigger{width:54px;height:54px}.mi-floating-panel{width:min(240px,calc(100vw - 28px))}}
 
 .cloud-history-info{display:grid;gap:3px;min-width:0;flex:1}.cloud-history-info>b{font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cloud-history-info>small{font-size:8px;color:var(--muted)}
+
+
+/* Trace preview and in-canvas vector editing */
+.art{position:relative;overflow:hidden;background:transparent;isolation:isolate}
+.art-white{background:#fff}
+.art .art-underlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.art>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;touch-action:none}
+.art>.art-underlay+svg{z-index:1}
+.art .editable-svg{cursor:crosshair;touch-action:none}
+.editor-toolbar{min-height:48px;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--panel)}
+.editor-label{font-size:8px;font-weight:800;letter-spacing:1.1px;color:var(--muted);margin-right:4px}
+.editor-toolbar button{height:29px;padding:0 9px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--soft);display:inline-flex;align-items:center;gap:5px;font:600 9px 'DM Sans';cursor:pointer}
+.editor-toolbar button.selected{border-color:var(--accent);background:var(--accent);color:#171b0d}
+.editor-toolbar button:disabled{opacity:.35;cursor:not-allowed}
+.editor-hint{font-size:8px;color:var(--muted);margin-left:auto}
+.overlay-line{margin-top:13px}
+.canvas-area:has(.art){background-color:#25282e;background-image:linear-gradient(45deg,#343840 25%,transparent 25%),linear-gradient(-45deg,#343840 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#343840 75%),linear-gradient(-45deg,transparent 75%,#343840 75%);background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0}
+.light .canvas-area:has(.art){background-color:#f5f6f8;background-image:linear-gradient(45deg,#e1e4e9 25%,transparent 25%),linear-gradient(-45deg,#e1e4e9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e1e4e9 75%),linear-gradient(-45deg,transparent 75%,#e1e4e9 75%)}
+@media(max-width:780px){.editor-toolbar{gap:5px}.editor-hint{width:100%;margin:3px 0 0}.editor-label{width:100%;margin-bottom:2px}.art{width:90%}}
