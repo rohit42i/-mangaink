@@ -72,6 +72,7 @@ export default function App() {
       setEditIndex(0);
       setView('ink');
     } catch (processingError) {
+      setResult(null);
       setError(processingError.message || 'Could not process this image.');
     } finally {
       setBusy(false);
@@ -261,7 +262,6 @@ export default function App() {
   function resetEdits() { setEditHistory(initialEdits); setEditIndex(0); }
   function resetAdjustments() {
     setThreshold(145); setSpeck(3); setStroke(1.35); setSmooth(true);
-    if (imageRef.current) run(imageRef.current, 145, 3);
   }
 
   const settings = { threshold, speck, stroke, smooth, dark, whiteBackground, overlayOpacity };
