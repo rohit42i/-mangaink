@@ -106,3 +106,18 @@ GitHub Pages runs the local image-processing and export workspace. Account sign-
 ## On-device workspace
 
 When the site is opened outside Zoho Catalyst, MangaInker keeps project files, editable SVG previews, processing history and studio preferences in the browser's IndexedDB. Projects can be reopened and deleted from the workspace. This storage is private to the current browser/device and does not sync to another device. Sign-in and cross-device cloud storage are available only after the site is deployed and configured in Zoho Catalyst.
+
+
+## Android floating companion
+
+The optional `android-companion` project builds a separate Android companion APK. It provides a draggable system-wide bubble, a movable tap target, and user-started repeated tapping with an adjustable interval. Android requires the user to grant Display over other apps and explicitly enable the MangaInker Accessibility Service. The tap service does not inspect screen contents; it dispatches taps only while the user has started it. Stop tapping from the floating panel at any time.
+
+Build locally with JDK 17 and Gradle 8.9:
+
+```sh
+gradle -p android-companion assembleDebug
+```
+
+The debug APK is produced at `android-companion/app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions also builds and uploads it as the `MangaInker-Floating-Companion-APK` artifact.
+
+The Android companion supplies system-wide floating controls and tap automation. It does not inject the website's image editor into other apps; image tracing and SVG/PNG export remain in the MangaInker website.
