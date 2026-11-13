@@ -31,8 +31,14 @@ export default function FloatingTools({
     setPosition({ left, top });
   }
   function pointerUp() {
-    if (drag.current && !moved.current) setOpen(value => !value);
     drag.current = null;
+  }
+  function toggleTools() {
+    if (moved.current) {
+      moved.current = false;
+      return;
+    }
+    setOpen(value => !value);
   }
   const positioned = position.left !== undefined
     ? { left: position.left, top: position.top }
@@ -62,6 +68,7 @@ export default function FloatingTools({
         className={'mi-floating-trigger ' + (open ? 'is-open' : '')}
         aria-label={open ? 'Close floating tools' : 'Open floating tools'}
         aria-expanded={open}
+        onClick={toggleTools}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}

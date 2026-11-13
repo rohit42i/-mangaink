@@ -174,49 +174,65 @@ export default function App() {
 
   function download(kind) {
     if (!result || !svg) return;
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const baseName = (input?.name || 'manga-page').replace(/\.[^.]+$/, '');
-    if (kind === 'svg') {
-      const url = URL.createObjectURL(blob);
+
+    function saveBlob(blob, fileName) {
+      const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = baseName + '-ink.svg';
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      anchor.rel = 'noopener';
+      anchor.style.position = 'fixed';
+      anchor.style.left = '-9999px';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-      return;
+      // Keep the URL alive while mobile browsers finish opening the download.
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     }
-    const image = new Image();
-    const url = URL.createObjectURL(blob);
-    image.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = result.w;
-      canvas.height = result.h;
-      const context = canvas.getContext('2d');
-      if (whiteBackground) {
-        context.fillStyle = '#fff';
-        context.fillRect(0, 0, canvas.width, canvas.height);
+
+    try {
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      if (kind === 'svg') {
+        saveBlob(svgBlob, baseName + '-ink.svg');
+        return;
       }
-      context.drawImage(image, 0, 0);
-      canvas.toBlob(png => {
-        if (png) {
-          const pngUrl = URL.createObjectURL(png);
-          const anchor = document.createElement('a');
-          anchor.href = pngUrl;
-          anchor.download = baseName + '-ink.png';
-          document.body.appendChild(anchor);
-          anchor.click();
-          anchor.remove();
-          window.setTimeout(() => URL.revokeObjectURL(pngUrl), 1500);
-        } else {
-          setError('The browser could not create the PNG. Try a smaller image or export SVG instead.');
+
+      const image = new Image();
+      const sourceUrl = URL.createObjectURL(svgBlob);
+      image.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = result.w;
+          canvas.height = result.h;
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('The browser could not prepare the PNG canvas.');
+          if (whiteBackground) {
+            context.fillStyle = '#fff';
+            context.fillRect(0, 0, canvas.width, canvas.height);
+          }
+          context.drawImage(image, 0, 0);
+          canvas.toBlob(png => {
+            URL.revokeObjectURL(sourceUrl);
+            if (!png) {
+              setError('The browser could not create the PNG. Try a smaller image or export SVG instead.');
+              return;
+            }
+            saveBlob(png, baseName + '-ink.png');
+          }, 'image/png');
+        } catch (exportError) {
+          URL.revokeObjectURL(sourceUrl);
+          setError(exportError.message || 'Could not create the PNG export.');
         }
-        URL.revokeObjectURL(url);
-      }, 'image/png');
-    };
-    image.onerror = () => { URL.revokeObjectURL(url); setError('Could not create the PNG export.'); };
-    image.src = url;
+      };
+      image.onerror = () => {
+        URL.revokeObjectURL(sourceUrl);
+        setError('Could not create the PNG export.');
+      };
+      image.src = sourceUrl;
+    } catch (exportError) {
+      setError(exportError.message || 'Could not export this image.');
+    }
   }
 
   function commitEdit(next) {
@@ -226,7 +242,7 @@ export default function App() {
 
   function pointFromEvent(event) {
     const bounds = svgRef.current?.getBoundingClientRect();
-    if (!bounds || !result) return null;
+    if (!bounds || !result || bounds.width <= 0 || bounds.height <= 0) return null;
     return {
       x: ((event.clientX - bounds.left) / bounds.width) * result.w,
       y: ((event.clientY - bounds.top) / bounds.height) * result.h,
@@ -253,7 +269,9 @@ export default function App() {
     const point = pointFromEvent(event);
     if (!point) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    try {
+      if (event.pointerId !== undefined) event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch { /* Pointer capture can be unavailable in embedded browsers. */ }
     if (editMode === 'erase') {
       eraserSession.current = new Set(edits.removed);
       eraseAt(point, eraserSession.current);
@@ -290,10 +308,20 @@ export default function App() {
     const points = drawingPoints.current;
     drawingPoints.current = [];
     setDrawing('');
-    if (points.length > 1) commitEdit({
-      removed: edits.removed,
-      manual: [...edits.manual, 'M' + points.map((point, index) => (index ? 'L' : '') + point.x.toFixed(1) + ' ' + point.y.toFixed(1)).join(' ')],
-    });
+    if (points.length > 0) {
+      const first = points[0];
+      const path = 'M' + points.map((point, index) =>
+        (index ? 'L' : '') + point.x.toFixed(1) + ' ' + point.y.toFixed(1)
+      ).join(' ');
+      // A short rounded segment makes a deliberate tap leave a visible vector dot.
+      const tapMark = points.length === 1
+        ? 'L' + (first.x + Math.max(0.8, stroke)).toFixed(1) + ' ' + first.y.toFixed(1)
+        : '';
+      commitEdit({
+        removed: edits.removed,
+        manual: [...edits.manual, path + tapMark],
+      });
+    }
   }
 
   function undo() { if (editIndex > 0) setEditIndex(index => index - 1); }

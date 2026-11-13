@@ -108,16 +108,20 @@ GitHub Pages runs the local image-processing and export workspace. Account sign-
 When the site is opened outside Zoho Catalyst, MangaInker keeps project files, editable SVG previews, processing history and studio preferences in the browser's IndexedDB. Projects can be reopened and deleted from the workspace. This storage is private to the current browser/device and does not sync to another device. Sign-in and cross-device cloud storage are available only after the site is deployed and configured in Zoho Catalyst.
 
 
-## Android floating companion
+## Android system-wide inking
 
-The optional `android-companion` project builds a separate Android companion APK. It provides a draggable system-wide bubble, a movable tap target, and user-started repeated tapping with an adjustable interval. Android requires the user to grant Display over other apps and explicitly enable the MangaInker Accessibility Service. The tap service does not inspect screen contents; it dispatches taps only while the user has started it. Stop tapping from the floating panel at any time.
+The separate Android app in app/ sends reconstructed outline paths into the drawing app that is currently open, such as ibisPaint. It uses an Android Accessibility Service to dispatch user-started touch strokes and a system overlay for a draggable MI floating icon. This is the part that can appear over other Android apps; a browser website cannot create system-wide overlays.
 
-Build locally with JDK 17 and Gradle 8.9:
+### How to use it
 
-```sh
-gradle -p android-companion assembleDebug
-```
+1. Install the MangaInker-Systemwide-Inking-APK artifact from the Android workflow.
+2. Open Manga Inker, choose the same outlined page you want to ink, adjust the reconstruction controls, and build the drawing paths.
+3. Enable **Manga Inker drawing gestures** in Android Accessibility settings and allow **Display over other apps**.
+4. Open ibisPaint, select the correct canvas, layer, and brush. Return to Manga Inker and tap **Show floating inking icon**.
+5. Switch to ibisPaint. Tap the floating **MI** bubble, choose **Calibrate page corners**, and drag markers 1–4 to the exact corners of the page.
+6. Save the calibration, run **Test one curve**, verify the mark appears in ibisPaint, undo it there, and then confirm the test in the floating panel.
+7. Start inking. The panel minimizes to the floating icon so the page remains clear. Tap the icon to pause or stop when needed.
 
-The debug APK is produced at `android-companion/app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions also builds and uploads it as the `MangaInker-Floating-Companion-APK` artifact.
+The tool draws the imported outline geometry; it does not inspect the other app's screen, generate new artwork, reproduce pressure or tilt, or choose the layer/brush for you. Keep ibisPaint on the same canvas and avoid moving or zooming the page after calibration. Android may restrict accessibility gestures in protected apps.
 
-The Android companion supplies system-wide floating controls and tap automation. It does not inject the website's image editor into other apps; image tracing and SVG/PNG export remain in the MangaInker website.
+The Android app is built and checked separately from the website by the **Manga Inker Android Inking App** workflow. Its APK artifact is named **MangaInker-Systemwide-Inking-APK**.

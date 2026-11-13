@@ -118,7 +118,7 @@ class MainActivity : Activity() {
         page.addView(processingStatus)
 
         page.addView(section("03  /  INKING CONTROLS"))
-        page.addView(help("Before starting, open ibisPaint, choose the correct canvas, layer and brush. Calibrate the four page corners, test one curve, then start the full page."))
+        page.addView(help("Open ibisPaint and choose the canvas, layer and brush first. Start the floating MI icon, calibrate the four page corners, test one curve, undo it, then start the full page."))
         page.addView(sliderLabel("Drawing speed", "Controls how quickly each simulated stroke is drawn."))
         speedSeek = seekBar(250, 2_500, 950)
         speedSeek.setOnSeekBarChangeListener(simpleSeek { value -> SessionStore.drawingSpeedPxPerSecond = value.toFloat() })
@@ -136,7 +136,7 @@ class MainActivity : Activity() {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             } else toast("Floating controls permission is already enabled.")
         })
-        openControlsButton = actionButton("Open ibisPaint inking controls") { startFloatingPanel() }
+        openControlsButton = actionButton("Show floating inking icon") { startFloatingPanel() }
         page.addView(openControlsButton)
         page.addView(actionButton("Clear current page session") { clearSession() })
 
@@ -251,7 +251,7 @@ class MainActivity : Activity() {
         }
         val intent = Intent(this, FloatingPanelService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
-        toast("Controls opened. Switch to ibisPaint and calibrate the page.")
+        toast("Floating MI icon is ready. Switch to ibisPaint and tap the icon to open controls.")
     }
 
     private fun isAccessibilityEnabled(): Boolean {
