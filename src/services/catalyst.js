@@ -18,18 +18,21 @@ function isCatalystHosted() {
 }
 
 async function getSession() {
-  const authenticatedUser = await zcAuth.isUserAuthenticated();
-  if (!authenticatedUser) return { authenticated: false, user: null };
-  const user = await zcAuth.getProjectUserDetails();
-  return { authenticated: true, user };
+  try {
+    const response = await zcAuth.isUserAuthenticated();
+    const user = response?.content ?? null;
+    const authenticated = Boolean(user && (user.user_id || user.email_id));
+    return { authenticated, user: authenticated ? user : null };
+  } catch {
+    return { authenticated: false, user: null };
+  }
 }
 
 export async function initializeCatalyst() {
   if (!isCatalystHosted()) {
     return { available: false, authenticated: false, user: null };
   }
-  // Browser SDK is initialized by the Catalyst-hosted client runtime. zcAuth.init()
-  // is the server-side initializer and must not be called from this browser entry point.
+  // Browser authentication configuration is supplied by Catalyst for the hosted client.
   initPromise ??= getSession();
   try {
     return { available: true, ...(await initPromise) };
