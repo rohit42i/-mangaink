@@ -3,10 +3,6 @@ name: Deploy MangaInker Website
 on:
   push:
     branches: [main]
-  workflow_run:
-    workflows: ["MangaInker Web CI and GitHub Pages"]
-    types: [completed]
-    branches: [web-migration]
   workflow_dispatch:
 
 permissions:
@@ -18,7 +14,7 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
       contents: read
