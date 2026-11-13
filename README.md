@@ -26,9 +26,17 @@ Local preview keeps image processing available, but cloud login and persistence 
 - Grayscale conversion and Otsu auto-threshold helper
 - Zhang-Suen skeleton thinning and SVG path reconstruction
 - Speck cleanup, threshold and stroke-width controls
-- Original and inked preview, zoom, dark/light theme
-- SVG and PNG export
+- Original, inked and transparent trace-overlay previews with adjustable overlay opacity
+- Editable vector paths: draw new strokes, erase traced segments, undo/redo and reset edits
+- Zoom controls, dark/light theme, and adjustable output background transparency
+- SVG and transparent PNG export (optional white background)
 - Local processing; source images are uploaded to Catalyst only when the user explicitly saves a project
+
+## Browser editor
+
+The floating quick-tools button is fixed above the website workspace, can be dragged around the browser viewport, and is excluded from artwork exports. It provides import, preview switching, reprocessing, vector draw/erase, and SVG/PNG export. It is a browser-page control, not an Android system overlay; a website cannot float above ibisPaint or other apps.
+
+The trace overlay places the original sketch under transparent vector ink so the artist can compare alignment. The path editor supports freehand vector additions, removal of the nearest generated segment, undo, redo, and reset. Exported SVG/PNG backgrounds are transparent by default, with an optional white background.
 
 ## Catalyst resources
 
