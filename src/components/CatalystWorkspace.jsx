@@ -108,7 +108,8 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
     try {
       await deleteCloudProject(row);
       setProjects(current => current.filter(item => item.ROWID !== row.ROWID));
-      showMessage('Cloud project deleted.');
+      setJobs(await listProcessingJobs());
+      showMessage('Cloud project and its history deleted.');
     } catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
   }
