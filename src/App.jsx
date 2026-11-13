@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import CatalystWorkspace from './components/CatalystWorkspace.jsx';
 import FloatingTools from './components/FloatingTools.jsx';
-import { otsu, trace, segmentsToPath, svgDocument } from './lib/imageProcessing.js';
+import { otsu, trace, segmentsToPath, svgDocument, parseSvgDocument } from './lib/imageProcessing.js';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const initialEdits = [{ removed: [], manual: [] }];
@@ -266,7 +266,7 @@ export default function App() {
             <div className="heading-actions"><span className="local"><i /> Processed on this device</span><button className="import" onClick={() => fileInput.current?.click()}><Upload size={16} /> Import image</button></div>
           </div>
 
-          <CatalystWorkspace file={input} svg={svg} settings={settings} onLoadFile={load} onRestoreSettings={saved => {
+          <CatalystWorkspace file={input} svg={svg} settings={settings} onLoadFile={load} onLoadProject={restoreProject} onRestoreSettings={saved => {
             if (typeof saved.threshold === 'number') setThreshold(saved.threshold);
             if (typeof saved.speck === 'number') setSpeck(saved.speck);
             if (typeof saved.stroke === 'number') setStroke(saved.stroke);
