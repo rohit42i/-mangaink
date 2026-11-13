@@ -223,9 +223,9 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
           <div className="cloud-projects-heading"><b>Processing history</b><button className="cloud-icon-button" onClick={handleRefresh} disabled={busy} title="Refresh history"><RefreshCw size={14} /></button></div>
           {jobs.length ? jobs.map(job => (
             <div className="cloud-project" key={job.ROWID || job.id}>
-              <button className="cloud-project-load" onClick={() => handleLoadHistory(job)} disabled={busy || !job.input_object_key}>
+              <button className="cloud-project-load" onClick={() => handleLoadHistory(job)} disabled={busy || !(job.input_object_key || job.project_id)}>
                 <span className="cloud-project-thumb"><History size={15} /></span>
-                <span className="cloud-history-info"><b>{String(job.input_object_key || 'Manga page').split('/').pop().replace(/^source-/, '')}</b><small>{job.created_at || job.CREATEDTIME || 'Processing record'} · {job.status || 'saved'}</small></span>
+                <span className="cloud-history-info"><b>{job.project_name || String(job.input_object_key || 'Manga page').split('/').pop().replace(/^source-/, '')}</b><small>{job.created_at || job.CREATEDTIME || 'Processing record'} · {job.status || 'saved'}</small></span>
               </button>
             </div>
           )) : <p className="cloud-empty">No processing records yet. Save a processed page to create your first history entry.</p>}
