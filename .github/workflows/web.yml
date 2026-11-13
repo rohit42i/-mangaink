@@ -22,7 +22,7 @@ jobs:
         run: npm run build
       - name: Prepare Catalyst web-client ZIP
         run: |
-          cp client-package.json dist/client-package.json
+          node -e "const fs=require('fs');const p=require('./client-package.json');p.version='1.'+process.env.GITHUB_RUN_NUMBER;fs.writeFileSync('dist/client-package.json',JSON.stringify(p,null,2)+'\\n')"
           cd dist
           zip -qr ../mangainker-catalyst-web.zip .
       - uses: actions/upload-artifact@v4
