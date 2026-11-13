@@ -8,7 +8,7 @@ import {
 
 function errorText(error) { return error?.message || 'Something went wrong. Please try again.'; }
 
-export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onRestoreSettings }) {
+export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onLoadProject, onRestoreSettings }) {
   const [available, setAvailable] = useState(false);
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -75,11 +75,15 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
   async function handleLoad(row) {
     setBusy(true);
     try {
-      const blob = await downloadProjectSource(row.source_object_key);
+      const [blob, previewBlob] = await Promise.all([
+        downloadProjectSource(row.source_object_key),
+        downloadProjectSource(row.preview_object_key),
+      ]);
       const extension = row.source_object_key?.split('.').pop()?.toLowerCase() || 'png';
       const fileType = blob.type || (extension === 'jpg' ? 'image/jpeg' : 'image/' + extension);
       const loaded = new File([blob], (row.project_name || 'manga-page') + '.' + extension, { type: fileType });
-      onLoadFile?.(loaded);
+      if (onLoadProject) onLoadProject(loaded, previewBlob);
+      else onLoadFile?.(loaded);
       setProjectsOpen(false);
       showMessage('Loaded "' + (row.project_name || 'Untitled project') + '".');
     } catch (error) { showMessage(errorText(error), true); }
@@ -91,11 +95,15 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
     if (!key) { showMessage('This history entry has no source image.', true); return; }
     setBusy(true);
     try {
-      const blob = await downloadProjectSource(key);
+      const [blob, previewBlob] = await Promise.all([
+        downloadProjectSource(key),
+        job.output_object_key ? downloadProjectSource(job.output_object_key) : Promise.resolve(null),
+      ]);
       const extension = key.split('.').pop()?.toLowerCase() || 'png';
       const fileType = blob.type || (extension === 'jpg' ? 'image/jpeg' : 'image/' + extension);
       const file = new File([blob], 'manga-page.' + extension, { type: fileType });
-      onLoadFile?.(file);
+      if (onLoadProject && previewBlob) onLoadProject(file, previewBlob);
+      else onLoadFile?.(file);
       setHistoryOpen(false);
       showMessage('Restored the source image from processing history.');
     } catch (error) { showMessage(errorText(error), true); }
