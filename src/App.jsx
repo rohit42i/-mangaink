@@ -97,6 +97,42 @@ export default function App() {
     image.src = url;
   }, [run]);
 
+  const restoreProject = useCallback(async (file, previewBlob) => {
+    if (!file || !previewBlob) { load(file); return; }
+    try {
+      const parsed = parseSvgDocument(await previewBlob.text());
+      const url = URL.createObjectURL(file);
+      const image = new Image();
+      image.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = parsed.w;
+          canvas.height = parsed.h;
+          const context = canvas.getContext('2d');
+          context.fillStyle = '#fff';
+          context.fillRect(0, 0, parsed.w, parsed.h);
+          context.drawImage(image, 0, 0, parsed.w, parsed.h);
+          imageRef.current = image;
+          setInput(file);
+          setResult({ ...parsed, source: canvas.toDataURL('image/png') });
+          setStroke(parsed.strokeWidth);
+          setWhiteBackground(parsed.whiteBackground);
+          setEditHistory(initialEdits);
+          setEditIndex(0);
+          setView('ink');
+          setZoom(1);
+          setError('');
+        } catch (restoreError) {
+          setError(restoreError.message || 'Could not restore this saved project.');
+        } finally { URL.revokeObjectURL(url); }
+      };
+      image.onerror = () => { URL.revokeObjectURL(url); setError('Could not open the saved source image.'); };
+      image.src = url;
+    } catch (restoreError) {
+      setError(restoreError.message || 'Could not restore the saved project.');
+    }
+  }, [load]);
+
   useEffect(() => {
     if (imageRef.current) run(imageRef.current);
   }, [run]);
