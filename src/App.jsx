@@ -143,6 +143,25 @@ export default function App() {
     try { localStorage.setItem('mangainker-theme', dark ? 'dark' : 'light'); } catch { /* storage may be disabled */ }
   }, [dark]);
 
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('mangainker-settings') || 'null');
+      if (!saved || typeof saved !== 'object') return;
+      if (typeof saved.threshold === 'number') setThreshold(clamp(saved.threshold, 20, 245));
+      if (typeof saved.speck === 'number') setSpeck(clamp(saved.speck, 1, 24));
+      if (typeof saved.stroke === 'number') setStroke(clamp(saved.stroke, .5, 5));
+      if (typeof saved.smooth === 'boolean') setSmooth(saved.smooth);
+      if (typeof saved.whiteBackground === 'boolean') setWhiteBackground(saved.whiteBackground);
+      if (typeof saved.overlayOpacity === 'number') setOverlayOpacity(clamp(saved.overlayOpacity, 10, 100));
+    } catch { /* local preferences may be unavailable or malformed */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('mangainker-settings', JSON.stringify({ threshold, speck, stroke, smooth, whiteBackground, overlayOpacity }));
+    } catch { /* storage may be disabled or full */ }
+  }, [threshold, speck, stroke, smooth, whiteBackground, overlayOpacity]);
+
   const svg = useMemo(() => result ? svgDocument({
     width: result.w,
     height: result.h,
