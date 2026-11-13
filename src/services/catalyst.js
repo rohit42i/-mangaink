@@ -139,20 +139,17 @@ export async function saveProjectToCloud(file, svg, projectName) {
   const ownerPath = 'users/' + creatorId + '/projects/' + rowId;
   const sourceKey = ownerPath + '/source-' + stem;
   const previewKey = ownerPath + '/line-art.svg';
-  const job = await jobs.insertRow({
-    status: 'uploading',
-    input_object_key: sourceKey,
-    output_object_key: previewKey,
-    error_message: '',
-    created_at: now,
-  });
-
+  let job = null;
   try {
-    await bucket.putObject(sourceKey, file, { contentType: file.type || 'application/octet-stream', overwrite: 'true' });
-    await bucket.putObject(previewKey, new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), {
-      contentType: 'image/svg+xml',
-      overwrite: 'true',
+    job = await jobs.insertRow({
+      status: 'uploading',
+      input_object_key: sourceKey,
+      output_object_key: previewKey,
+      error_message: '',
+      created_at: now,
     });
+    await bucket.putObject(sourceKey, file);
+    await bucket.putObject(previewKey, new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
     await projects.updateRow({
       ROWID: project.ROWID,
       project_name: name,
