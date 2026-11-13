@@ -5,6 +5,7 @@ import {
   listSavedProjects, listProcessingJobs, saveProjectToCloud, saveUserSettings, signOutCatalyst,
   syncUserProfile, loadUserSettings,
 } from '../services/catalyst.js';
+import { deleteLocalProject, listLocalHistory, listLocalProjects, loadLocalProject, saveLocalProject, saveLocalSettings } from '../services/localWorkspace.js';
 
 function errorText(error) { return error?.message || 'Something went wrong. Please try again.'; }
 
@@ -13,6 +14,7 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [localMode, setLocalMode] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
@@ -24,10 +26,15 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
 
   useEffect(() => {
     let active = true;
-    initializeCatalyst().then(async session => {
+    Promise.all([initializeCatalyst(), listLocalProjects(), listLocalHistory()]).then(async ([session, localSaved, localHistory]) => {
       if (!active) return;
       setAvailable(session.available);
       setUser(session.user);
+      setLocalMode(!session.authenticated);
+      if (!session.authenticated) {
+        setProjects(localSaved);
+        setJobs(localHistory);
+      }
       if (session.authenticated && session.user) {
         try {
           await syncUserProfile(session.user);
@@ -55,8 +62,15 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
 
   async function handleRefresh() {
     setBusy(true);
-    try { const [saved, recentJobs] = await Promise.all([listSavedProjects(), listProcessingJobs()]); setProjects(saved); setJobs(recentJobs); showMessage('Your cloud workspace is up to date.'); }
-    catch (error) { showMessage(errorText(error), true); }
+    try {
+      if (user) {
+        const [saved, recentJobs] = await Promise.all([listSavedProjects(), listProcessingJobs()]);
+        setProjects(saved); setJobs(recentJobs); showMessage('Your cloud workspace is up to date.');
+      } else {
+        const [saved, recentJobs] = await Promise.all([listLocalProjects(), listLocalHistory()]);
+        setProjects(saved); setJobs(recentJobs); showMessage('Your on-device workspace is up to date.');
+      }
+    } catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
   }
 
@@ -64,10 +78,17 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
     if (!file || !svg) { showMessage('Import and process an image before saving it.', true); return; }
     setBusy(true);
     try {
-      const saved = await saveProjectToCloud(file, svg, file.name.replace(/\.[^.]+$/, ''));
-      setProjects(current => [saved, ...current.filter(item => item.ROWID !== saved.ROWID)]);
-      setJobs(await listProcessingJobs());
-      showMessage('Project saved securely to 1manga.');
+      if (user) {
+        const saved = await saveProjectToCloud(file, svg, file.name.replace(/\.[^.]+$/, ''));
+        setProjects(current => [saved, ...current.filter(item => item.ROWID !== saved.ROWID)]);
+        setJobs(await listProcessingJobs());
+        showMessage('Project saved to your MangaInker cloud.');
+      } else {
+        const saved = await saveLocalProject(file, svg, file.name.replace(/\.[^.]+$/, ''));
+        setProjects(current => [saved, ...current.filter(item => item.id !== saved.id)]);
+        setJobs(await listLocalHistory());
+        showMessage('Project saved on this device. It will not sync to other devices.');
+      }
     } catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
   }
@@ -75,6 +96,13 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
   async function handleLoad(row) {
     setBusy(true);
     try {
+      if (!user) {
+        const saved = await loadLocalProject(row.id);
+        onLoadProject?.(saved.file, saved.preview);
+        setProjectsOpen(false);
+        showMessage('Loaded "' + (row.project_name || 'Untitled project') + '" from this device.');
+        return;
+      }
       const [blob, previewBlob] = await Promise.all([
         downloadProjectSource(row.source_object_key),
         row.preview_object_key ? downloadProjectSource(row.preview_object_key) : Promise.resolve(null),
@@ -91,6 +119,18 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
   }
 
   async function handleLoadHistory(job) {
+    if (!user) {
+      if (!job?.project_id) { showMessage('This history entry has no saved project.', true); return; }
+      setBusy(true);
+      try {
+        const saved = await loadLocalProject(job.project_id);
+        onLoadProject?.(saved.file, saved.preview);
+        setHistoryOpen(false);
+        showMessage('Restored "' + (job.project_name || 'Untitled project') + '" from this device.');
+      } catch (error) { showMessage(errorText(error), true); }
+      finally { setBusy(false); }
+      return;
+    }
     const key = job?.input_object_key;
     if (!key) { showMessage('This history entry has no source image.', true); return; }
     setBusy(true);
@@ -114,17 +154,27 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
     if (!window.confirm('Delete "' + (row.project_name || 'Untitled project') + '" and its stored files?')) return;
     setBusy(true);
     try {
-      await deleteCloudProject(row);
-      setProjects(current => current.filter(item => item.ROWID !== row.ROWID));
-      setJobs(await listProcessingJobs());
-      showMessage('Cloud project and its history deleted.');
+      if (user) {
+        await deleteCloudProject(row);
+        setProjects(current => current.filter(item => item.ROWID !== row.ROWID));
+        setJobs(await listProcessingJobs());
+        showMessage('Cloud project and its history deleted.');
+      } else {
+        await deleteLocalProject(row.id);
+        setProjects(await listLocalProjects());
+        setJobs(await listLocalHistory());
+        showMessage('Project and its local history deleted.');
+      }
     } catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
   }
 
   async function handleSaveSettings() {
     setBusy(true);
-    try { await saveUserSettings(settings); showMessage('Your studio settings were saved to your account.'); }
+    try {
+      if (user) { await saveUserSettings(settings); showMessage('Your studio settings were saved to your account.'); }
+      else { await saveLocalSettings(settings); showMessage('Your studio settings were saved on this device.'); }
+    }
     catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
   }
@@ -139,28 +189,24 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
       <div className="cloud-header">
         <div className="cloud-identity">
           <span className="cloud-icon"><Cloud size={17} /></span>
-          <span><b>My MangaInker cloud</b><small>{user ? (user.email_id || user.email || 'Signed in') : available ? 'Sign in to save projects across devices' : 'Cloud features activate on the Catalyst website'}</small></span>
+          <span><b>{user ? 'My MangaInker cloud' : 'My MangaInker workspace'}</b><small>{user ? (user.email_id || user.email || 'Signed in') : 'Projects and settings are saved privately on this device'}</small></span>
         </div>
         <div className="cloud-actions">
-          {user ? (
-            <>
-              <button className="cloud-button" onClick={() => { setProjectsOpen(value => !value); setHistoryOpen(false); }} disabled={busy}><Archive size={14} /> My projects <span className="cloud-count">{projects.length}</span></button>
-              <button className="cloud-button" onClick={() => { setHistoryOpen(value => !value); setProjectsOpen(false); }} disabled={busy}><History size={14} /> History <span className="cloud-count">{jobs.length}</span></button>
-              <button className="cloud-button" onClick={handleSave} disabled={busy || !file || !svg}><CloudUpload size={14} /> Save project</button>
-              <button className="cloud-icon-button" onClick={handleSaveSettings} title="Save studio settings" disabled={busy}><Save size={15} /></button>
-              <button className="cloud-icon-button" onClick={handleSignOut} title="Sign out"><LogOut size={15} /></button>
-            </>
-          ) : (
-            <button className="cloud-button cloud-primary" disabled={!available} onClick={() => setLoginOpen(true)}><LogIn size={14} /> {available ? 'Sign in' : 'Catalyst hosting required'}</button>
-          )}
+          <>
+            <button className="cloud-button" onClick={() => { setProjectsOpen(value => !value); setHistoryOpen(false); }} disabled={busy}><Archive size={14} /> My projects <span className="cloud-count">{projects.length}</span></button>
+            <button className="cloud-button" onClick={() => { setHistoryOpen(value => !value); setProjectsOpen(false); }} disabled={busy}><History size={14} /> History <span className="cloud-count">{jobs.length}</span></button>
+            <button className="cloud-button" onClick={handleSave} disabled={busy || !file || !svg}>{user ? <CloudUpload size={14} /> : <Save size={14} />} {user ? 'Save to cloud' : 'Save project'}</button>
+            <button className="cloud-icon-button" onClick={handleSaveSettings} title="Save studio settings" disabled={busy}><Save size={15} /></button>
+            {user ? <button className="cloud-icon-button" onClick={handleSignOut} title="Sign out"><LogOut size={15} /></button> : available ? <button className="cloud-button cloud-primary" onClick={() => setLoginOpen(true)}><LogIn size={14} /> Sign in for cloud</button> : null}
+          </>
         </div>
       </div>
 
-      {historyOpen && user && (
+      {historyOpen && (
         <div className="cloud-projects cloud-history">
           <div className="cloud-projects-heading"><b>Processing history</b><button className="cloud-icon-button" onClick={handleRefresh} disabled={busy} title="Refresh history"><RefreshCw size={14} /></button></div>
           {jobs.length ? jobs.map(job => (
-            <div className="cloud-project" key={job.ROWID}>
+            <div className="cloud-project" key={job.ROWID || job.id}>
               <button className="cloud-project-load" onClick={() => handleLoadHistory(job)} disabled={busy || !job.input_object_key}>
                 <span className="cloud-project-thumb"><History size={15} /></span>
                 <span className="cloud-history-info"><b>{String(job.input_object_key || 'Manga page').split('/').pop().replace(/^source-/, '')}</b><small>{job.created_at || job.CREATEDTIME || 'Processing record'} · {job.status || 'saved'}</small></span>
@@ -170,14 +216,14 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
         </div>
       )}
 
-      {projectsOpen && user && (
+      {projectsOpen && (
         <div className="cloud-projects">
           <div className="cloud-projects-heading"><b>Saved projects</b><button className="cloud-icon-button" onClick={handleRefresh} disabled={busy} title="Refresh"><RefreshCw size={14} /></button></div>
           {projects.length ? projects.map(project => (
-            <div className="cloud-project" key={project.ROWID}>
+            <div className="cloud-project" key={project.ROWID || project.id}>
               <button className="cloud-project-load" onClick={() => handleLoad(project)} disabled={busy}>
                 <span className="cloud-project-thumb"><CloudDownload size={16} /></span>
-                <span><b>{project.project_name || 'Untitled project'}</b><small>{project.updated_at || project.CREATEDTIME || 'Saved to cloud'}</small></span>
+                <span><b>{project.project_name || 'Untitled project'}</b><small>{project.updated_at || project.CREATEDTIME || 'Saved on this device'}</small></span>
               </button>
               <button className="cloud-icon-button cloud-delete" onClick={() => handleDelete(project)} disabled={busy} title="Delete project"><Trash2 size={14} /></button>
             </div>
