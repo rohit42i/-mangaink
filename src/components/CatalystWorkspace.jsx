@@ -77,12 +77,12 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onL
     try {
       const [blob, previewBlob] = await Promise.all([
         downloadProjectSource(row.source_object_key),
-        downloadProjectSource(row.preview_object_key),
+        row.preview_object_key ? downloadProjectSource(row.preview_object_key) : Promise.resolve(null),
       ]);
       const extension = row.source_object_key?.split('.').pop()?.toLowerCase() || 'png';
       const fileType = blob.type || (extension === 'jpg' ? 'image/jpeg' : 'image/' + extension);
       const loaded = new File([blob], (row.project_name || 'manga-page') + '.' + extension, { type: fileType });
-      if (onLoadProject) onLoadProject(loaded, previewBlob);
+      if (onLoadProject && previewBlob) onLoadProject(loaded, previewBlob);
       else onLoadFile?.(loaded);
       setProjectsOpen(false);
       showMessage('Loaded "' + (row.project_name || 'Untitled project') + '".');
