@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { otsu, trace, segmentsToPath, svgDocument } from '../src/lib/imageProcessing.js';
+import { otsu, trace, segmentsToPath, svgDocument, parseSvgDocument } from '../src/lib/imageProcessing.js';
 
 function whitePixels(width, height) {
   const pixels = new Uint8ClampedArray(width * height * 4);
@@ -44,4 +44,17 @@ test('white background export is optional', () => {
 test('vector path editing removes selected segments', () => {
   const segments = [{ x1: 1, y1: 1, x2: 2, y2: 2 }, { x1: 3, y1: 3, x2: 4, y2: 4 }];
   assert.equal(segmentsToPath(segments, [0]), 'M3 3L4 4');
+});
+
+test('saved SVG projects restore editable segments and output settings', () => {
+  const svg = svgDocument({
+    width: 20, height: 15, path: 'M1 2L3 4',
+    manualPaths: ['M5 6L7 8L9 10'], strokeWidth: 2.25, whiteBackground: true,
+  });
+  const restored = parseSvgDocument(svg);
+  assert.equal(restored.w, 20);
+  assert.equal(restored.h, 15);
+  assert.equal(restored.strokeWidth, 2.25);
+  assert.equal(restored.whiteBackground, true);
+  assert.equal(restored.segments.length, 3);
 });
