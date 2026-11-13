@@ -116,6 +116,7 @@ export default function App() {
           setInput(file);
           setResult({ ...parsed, source: canvas.toDataURL('image/png') });
           setStroke(parsed.strokeWidth);
+          setSmooth(parsed.smooth);
           setWhiteBackground(parsed.whiteBackground);
           setEditHistory(initialEdits);
           setEditIndex(0);
