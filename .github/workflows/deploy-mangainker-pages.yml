@@ -1,0 +1,52 @@
+name: Deploy MangaInker Website
+
+on:
+  workflow_run:
+    workflows: ["MangaInker Web CI and GitHub Pages"]
+    types: [completed]
+    branches: [web-migration]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mangainker-production-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - name: Checkout website source
+        uses: actions/checkout@v4
+        with:
+          ref: web-migration
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Build website for repository URL
+        run: npm run build
+        env:
+          VITE_BASE_PATH: /-mangaink/
+      - name: Add GitHub Pages marker
+        run: touch dist/.nojekyll
+      - name: Upload website artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy website
+        id: deployment
+        uses: actions/deploy-pages@v4
