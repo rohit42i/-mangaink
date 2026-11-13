@@ -133,9 +133,16 @@ export async function saveProjectToCloud(file, svg, projectName) {
   const rowId = String(project?.ROWID ?? '');
   if (!rowId) throw new Error('Catalyst did not return a project ID. Please retry.');
 
+  const storedProject = project?.CREATORID ? project : await projects.getRow(rowId);
+  const creatorId = String(storedProject?.CREATORID || '');
+  if (!/^\\d+$/.test(creatorId)) {
+    await projects.deleteRow(project.ROWID);
+    throw new Error('Catalyst did not return the project owner ID. The project was not uploaded.');
+  }
   const stem = safeFileName(file.name || 'manga-page.png');
-  const sourceKey = 'projects/' + rowId + '/source-' + stem;
-  const previewKey = 'projects/' + rowId + '/line-art.svg';
+  const ownerPath = 'users/' + creatorId + '/projects/' + rowId;
+  const sourceKey = ownerPath + '/source-' + stem;
+  const previewKey = ownerPath + '/line-art.svg';
   const job = await jobs.insertRow({
     status: 'uploading',
     input_object_key: sourceKey,
