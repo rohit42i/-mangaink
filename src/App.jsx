@@ -186,6 +186,8 @@ export default function App() {
           anchor.download = baseName + '-ink.png';
           anchor.click();
           setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
+        } else {
+          setError('The browser could not create the PNG. Try a smaller image or export SVG instead.');
         }
         URL.revokeObjectURL(url);
       }, 'image/png');
@@ -210,7 +212,9 @@ export default function App() {
 
   function eraseAt(point) {
     if (!point || !result) return;
-    let bestIndex = -1, bestDistance = 14;
+    const bounds = svgRef.current?.getBoundingClientRect();
+    const hitRadius = bounds?.width ? Math.max(14, (20 * result.w) / bounds.width) : 14;
+    let bestIndex = -1, bestDistance = hitRadius;
     for (let i = 0; i < result.segments.length; i++) {
       if (removed.has(i)) continue;
       const segment = result.segments[i];
