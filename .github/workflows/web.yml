@@ -3,7 +3,7 @@ on:
   push:
     branches: [web-migration]
   pull_request:
-    branches: [web-migration]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
