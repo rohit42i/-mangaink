@@ -1,7 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { ArrowDownToLine, FileImage, FolderOpen, Grip, RefreshCw, ScanLine, X } from 'lucide-react';
+import {
+  ArrowDownToLine, Eraser, Eye, FileImage, FolderOpen, Grip, Pencil,
+  RefreshCw, ScanLine, X,
+} from 'lucide-react';
 
-export default function FloatingTools({ onImport, onToggleView, onReprocess, onExportSvg, onExportPng, hasImage, hasResult, view }) {
+export default function FloatingTools({
+  onImport, onToggleView, onReprocess, onExportSvg, onExportPng,
+  onDraw, onErase, hasImage, hasResult, view,
+}) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState({ right: 22, bottom: 22 });
   const drag = useRef(null);
@@ -41,12 +47,14 @@ export default function FloatingTools({ onImport, onToggleView, onReprocess, onE
             <button type="button" onClick={() => setOpen(false)} aria-label="Close floating tools"><X size={15} /></button>
           </div>
           <button type="button" onClick={onImport}><FolderOpen size={15} /> Import manga page</button>
-          <button type="button" onClick={onToggleView} disabled={!hasImage}><FileImage size={15} /> {view === 'original' ? 'Show inked result' : 'Show original image'}</button>
+          <button type="button" onClick={onToggleView} disabled={!hasImage}><Eye size={15} /> {view === 'overlay' ? 'Show inked result' : 'Show trace overlay'}</button>
+          <button type="button" onClick={onDraw} disabled={!hasResult}><Pencil size={15} /> Draw vector path</button>
+          <button type="button" onClick={onErase} disabled={!hasResult}><Eraser size={15} /> Erase vector path</button>
           <button type="button" onClick={onReprocess} disabled={!hasImage}><RefreshCw size={15} /> Process again</button>
           <div className="mi-floating-divider" />
           <button type="button" onClick={onExportSvg} disabled={!hasResult}><ArrowDownToLine size={15} /> Export SVG</button>
-          <button type="button" onClick={onExportPng} disabled={!hasResult}><ArrowDownToLine size={15} /> Export PNG</button>
-          <p>These controls float above the workspace and are never included in your exported artwork.</p>
+          <button type="button" onClick={onExportPng} disabled={!hasResult}><FileImage size={15} /> Export transparent PNG</button>
+          <p>Floating website controls stay outside the artwork and are never included in exports.</p>
         </div>
       )}
       <button
