@@ -94,7 +94,7 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
       const blob = await downloadProjectSource(key);
       const extension = key.split('.').pop()?.toLowerCase() || 'png';
       const fileType = blob.type || (extension === 'jpg' ? 'image/jpeg' : 'image/' + extension);
-      const file = new File([blob], key.split('/').pop().replace(/^source-/, 'manga-page.'), { type: fileType });
+      const file = new File([blob], 'manga-page.' + extension, { type: fileType });
       onLoadFile?.(file);
       setHistoryOpen(false);
       showMessage('Restored the source image from processing history.');
