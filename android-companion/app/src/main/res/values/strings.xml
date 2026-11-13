@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">MangaInker Floating Tools</string>
+    <string name="accessibility_description">Performs screen taps only when you explicitly start the MangaInker tap tool. It does not read screen content.</string>
+</resources>
