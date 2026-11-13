@@ -85,3 +85,11 @@ The Catalyst connector used for this migration does not expose bucket permission
 ## Privacy
 
 Image processing runs in the browser. Nothing is uploaded until the signed-in user chooses Save project. Saved originals and SVG outputs use a user-specific Stratus path, and project metadata is stored in user-scoped Catalyst Data Store rows.
+
+## Live website
+
+The browser workspace is published at https://rohit42i.github.io/-mangaink/.
+
+The web-migration branch is built and tested by the MangaInker Web CI workflow. After a successful push build, the main-branch Deploy MangaInker Website workflow checks out this branch and publishes the static site to GitHub Pages. The Android application source remains on main and is not replaced by the website source.
+
+GitHub Pages runs the local image-processing and export workspace. Account sign-in and cloud project storage are provided by the Zoho Catalyst-hosted deployment; they are intentionally unavailable on the GitHub Pages origin until that origin is configured and verified for Catalyst authentication and Stratus CORS/permissions.
