@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Archive, Cloud, CloudDownload, CloudUpload, LogIn, LogOut, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react';
+import { Archive, Cloud, CloudDownload, CloudUpload, History, LogIn, LogOut, RefreshCw, Save, Settings2, Trash2, X } from 'lucide-react';
 import {
   beginCatalystSignIn, deleteCloudProject, downloadProjectSource, initializeCatalyst,
-  listSavedProjects, saveProjectToCloud, saveUserSettings, signOutCatalyst,
+  listSavedProjects, listProcessingJobs, saveProjectToCloud, saveUserSettings, signOutCatalyst,
   syncUserProfile, loadUserSettings,
 } from '../services/catalyst.js';
 
@@ -12,6 +12,8 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
   const [available, setAvailable] = useState(false);
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [projectsOpen, setProjectsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,9 +31,10 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
       if (session.authenticated && session.user) {
         try {
           await syncUserProfile(session.user);
-          const [saved, preferences] = await Promise.all([listSavedProjects(), loadUserSettings()]);
+          const [saved, preferences, recentJobs] = await Promise.all([listSavedProjects(), loadUserSettings(), listProcessingJobs()]);
           if (!active) return;
           setProjects(saved);
+          setJobs(recentJobs);
           if (preferences && typeof preferences === 'object') onRestoreSettings?.(preferences);
         } catch (error) { if (active) showMessage(errorText(error), true); }
       }
@@ -52,7 +55,7 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
 
   async function handleRefresh() {
     setBusy(true);
-    try { setProjects(await listSavedProjects()); showMessage('Your cloud projects are up to date.'); }
+    try { const [saved, recentJobs] = await Promise.all([listSavedProjects(), listProcessingJobs()]); setProjects(saved); setJobs(recentJobs); showMessage('Your cloud workspace is up to date.'); }
     catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
   }
@@ -63,6 +66,7 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
     try {
       const saved = await saveProjectToCloud(file, svg, file.name.replace(/\.[^.]+$/, ''));
       setProjects(current => [saved, ...current.filter(item => item.ROWID !== saved.ROWID)]);
+      setJobs(await listProcessingJobs());
       showMessage('Project saved securely to 1manga.');
     } catch (error) { showMessage(errorText(error), true); }
     finally { setBusy(false); }
@@ -115,7 +119,8 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
         <div className="cloud-actions">
           {user ? (
             <>
-              <button className="cloud-button" onClick={() => setProjectsOpen(value => !value)} disabled={busy}><Archive size={14} /> My projects <span className="cloud-count">{projects.length}</span></button>
+              <button className="cloud-button" onClick={() => { setProjectsOpen(value => !value); setHistoryOpen(false); }} disabled={busy}><Archive size={14} /> My projects <span className="cloud-count">{projects.length}</span></button>
+              <button className="cloud-button" onClick={() => { setHistoryOpen(value => !value); setProjectsOpen(false); }} disabled={busy}><History size={14} /> History <span className="cloud-count">{jobs.length}</span></button>
               <button className="cloud-button" onClick={handleSave} disabled={busy || !file || !svg}><CloudUpload size={14} /> Save project</button>
               <button className="cloud-icon-button" onClick={handleSaveSettings} title="Save studio settings" disabled={busy}><Save size={15} /></button>
               <button className="cloud-icon-button" onClick={handleSignOut} title="Sign out"><LogOut size={15} /></button>
@@ -125,6 +130,18 @@ export default function CatalystWorkspace({ file, svg, settings, onLoadFile, onR
           )}
         </div>
       </div>
+
+      {historyOpen && user && (
+        <div className="cloud-projects cloud-history">
+          <div className="cloud-projects-heading"><b>Processing history</b><button className="cloud-icon-button" onClick={handleRefresh} disabled={busy} title="Refresh history"><RefreshCw size={14} /></button></div>
+          {jobs.length ? jobs.map(job => (
+            <div className="cloud-project" key={job.ROWID}>
+              <span className="cloud-project-thumb"><History size={15} /></span>
+              <span className="cloud-history-info"><b>{String(job.input_object_key || 'Manga page').split('/').pop().replace(/^source-/, '')}</b><small>{job.created_at || job.CREATEDTIME || 'Processing record'} · {job.status || 'saved'}</small></span>
+            </div>
+          )) : <p className="cloud-empty">No processing records yet. Save a processed page to create your first history entry.</p>}
+        </div>
+      )}
 
       {projectsOpen && user && (
         <div className="cloud-projects">
