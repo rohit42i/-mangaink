@@ -67,7 +67,7 @@ The current authenticated bucket template only grants GetObject by default. Befo
         "DeleteObject"
       ],
       "paths": [
-        "1manga::/users/X_ZUID/*"
+        "1manga::/users/${var:X_ZUID}/*"
       ],
       "effect": "allow"
     }
@@ -76,7 +76,7 @@ The current authenticated bucket template only grants GetObject by default. Befo
 }
 ~~~
 
-This scopes each authenticated user's files to their own Catalyst ZUID path. Do not replace X_ZUID with an asterisk or change the path to the whole bucket.
+This scopes each authenticated user's files to their own Catalyst user ID path. The code uses the Data Store CREATORID value, and Catalyst documents CREATORID as the unique Catalyst account user ID. Do not replace X_ZUID with an asterisk or change the path to the whole bucket.
 
 After the web app has been hosted and Catalyst gives it a URL, open Stratus → 1manga → Configurations → Bucket CORS and add that exact website origin with GET, PUT, and DELETE methods. The URL is generated only after web hosting, so the origin cannot be preconfigured yet.
 
