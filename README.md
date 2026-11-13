@@ -40,20 +40,48 @@ The Development project already contains:
 - MI_ProcessingJobs
 - MI_UserSettings
 
-Tables use USER scope for App User and GLOBAL scope for App Administrator. App User has CRUD access within its own USER-scoped records.
+Tables use USER scope for App User and GLOBAL scope for App Administrator. App User has CRUD access within its own USER-scoped records. Saved Stratus object keys are partitioned by the Data Store row's CREATORID so bucket rules can enforce per-user file isolation.
 
 ## Build a Catalyst upload package
 
 Every successful GitHub Actions build creates an artifact named MangaInker-Catalyst-Web. Download its mangainker-catalyst-web.zip file and upload that ZIP in Catalyst Console → Web Client Hosting. The ZIP root contains index.html, built assets, and client-package.json as required by Catalyst Web Client Hosting.
 
-## Stratus setup required after hosting
+## Required Stratus security setup after hosting
 
-In Stratus → 1manga:
-1. Confirm the authenticated bucket rules allow App User GetObject, PutObject, and DeleteObject.
-2. Add the generated Web Client Hosting URL under Bucket CORS with GET, PUT, and DELETE methods.
+The current authenticated bucket template only grants GetObject by default. Before enabling cloud saves, replace its default permission rule with this user-scoped rule in Stratus → 1manga → Bucket Permissions → Edit Permission:
 
-The Catalyst connector used for this migration does not expose these bucket-permission/CORS controls or a web-client upload action. Cloud project saving reports Catalyst permission/CORS failures clearly rather than silently pretending a file was saved.
+~~~json
+{
+  "rules": [
+    {
+      "rule_id": "MangaInker_User_Private_Files",
+      "condition": {
+        "user": {
+          "auth_type": "authenticated",
+          "zuid": "*"
+        }
+      },
+      "allowed_actions": [
+        "GetObject",
+        "PutObject",
+        "DeleteObject"
+      ],
+      "paths": [
+        "1manga::/users/X_ZUID/*"
+      ],
+      "effect": "allow"
+    }
+  ],
+  "version": "v1"
+}
+~~~
+
+This scopes each authenticated user's files to their own Catalyst ZUID path. Do not replace X_ZUID with an asterisk or change the path to the whole bucket.
+
+After the web app has been hosted and Catalyst gives it a URL, open Stratus → 1manga → Configurations → Bucket CORS and add that exact website origin with GET, PUT, and DELETE methods. The URL is generated only after web hosting, so the origin cannot be preconfigured yet.
+
+The Catalyst connector used for this migration does not expose bucket permission/CORS editing or a web-client ZIP upload action. The GitHub Actions artifact is prepared for the console upload step. Cloud project saving reports permission/CORS failures clearly rather than silently pretending a file was saved.
 
 ## Privacy
 
-Image processing runs in the browser. Nothing is uploaded until the signed-in user chooses Save project. Saved originals and SVG outputs are stored in the authenticated 1manga bucket, with project metadata stored in Catalyst Data Store.
+Image processing runs in the browser. Nothing is uploaded until the signed-in user chooses Save project. Saved originals and SVG outputs use a user-specific Stratus path, and project metadata is stored in user-scoped Catalyst Data Store rows.
