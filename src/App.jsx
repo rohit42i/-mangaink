@@ -37,6 +37,7 @@ export default function App() {
   const imageRef = useRef(null);
   const svgRef = useRef(null);
   const drawingPoints = useRef([]);
+  const eraserSession = useRef(null);
 
   const edits = editHistory[editIndex] || initialEdits[0];
   const removed = useMemo(() => new Set(edits.removed), [edits.removed]);
@@ -72,7 +73,6 @@ export default function App() {
       setEditIndex(0);
       setView('ink');
     } catch (processingError) {
-      setResult(null);
       setError(processingError.message || 'Could not process this image.');
     } finally {
       setBusy(false);
@@ -229,22 +229,19 @@ export default function App() {
     };
   }
 
-  function eraseAt(point) {
-    if (!point || !result) return;
+  function eraseAt(point, removedSet) {
+    if (!point || !result || !removedSet) return;
     const bounds = svgRef.current?.getBoundingClientRect();
-    const hitRadius = bounds?.width ? Math.max(14, (20 * result.w) / bounds.width) : 14;
-    let bestIndex = -1, bestDistance = hitRadius;
+    const hitRadius = bounds?.width ? Math.max(10, (18 * result.w) / bounds.width) : 10;
     for (let i = 0; i < result.segments.length; i++) {
-      if (removed.has(i)) continue;
+      if (removedSet.has(i)) continue;
       const segment = result.segments[i];
       const dx = segment.x2 - segment.x1, dy = segment.y2 - segment.y1;
       const lengthSquared = dx * dx + dy * dy;
       const t = lengthSquared ? clamp(((point.x - segment.x1) * dx + (point.y - segment.y1) * dy) / lengthSquared, 0, 1) : 0;
       const px = segment.x1 + t * dx, py = segment.y1 + t * dy;
-      const distance = Math.hypot(point.x - px, point.y - py);
-      if (distance < bestDistance) { bestDistance = distance; bestIndex = i; }
+      if (Math.hypot(point.x - px, point.y - py) <= hitRadius) removedSet.add(i);
     }
-    if (bestIndex >= 0) commitEdit({ removed: [...edits.removed, bestIndex], manual: edits.manual });
   }
 
   function handlePointerDown(event) {
@@ -252,13 +249,22 @@ export default function App() {
     const point = pointFromEvent(event);
     if (!point) return;
     event.preventDefault();
-    if (editMode === 'erase') { eraseAt(point); return; }
-    drawingPoints.current = [point];
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    if (editMode === 'erase') {
+      eraserSession.current = new Set(edits.removed);
+      eraseAt(point, eraserSession.current);
+      return;
+    }
+    drawingPoints.current = [point];
     setDrawing('M' + point.x.toFixed(1) + ' ' + point.y.toFixed(1));
   }
 
   function handlePointerMove(event) {
+    if (editMode === 'erase' && eraserSession.current) {
+      const point = pointFromEvent(event);
+      if (point) eraseAt(point, eraserSession.current);
+      return;
+    }
     if (editMode !== 'draw' || !drawingPoints.current.length) return;
     const point = pointFromEvent(event);
     if (!point) return;
@@ -270,6 +276,12 @@ export default function App() {
   }
 
   function handlePointerUp() {
+    if (editMode === 'erase' && eraserSession.current) {
+      const nextRemoved = [...eraserSession.current];
+      eraserSession.current = null;
+      if (nextRemoved.length !== edits.removed.length) commitEdit({ removed: nextRemoved, manual: edits.manual });
+      return;
+    }
     if (editMode !== 'draw' || !drawingPoints.current.length) return;
     const points = drawingPoints.current;
     drawingPoints.current = [];
