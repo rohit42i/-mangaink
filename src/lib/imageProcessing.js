@@ -140,3 +140,42 @@ export function svgDocument({ width, height, path, manualPaths = [], strokeWidth
     background + '<g fill="none" stroke="#111" stroke-width="' + strokeWidth + '" stroke-linecap="' + cap + '" stroke-linejoin="' + joins + '">' +
     '<path d="' + path + '"/>' + manual + '</g></svg>';
 }
+
+export function parseSvgDocument(svgText) {
+  const viewBox = String(svgText).match(/viewBox=["']0\s+0\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)/i);
+  if (!viewBox) throw new Error('This saved project has an unsupported SVG preview.');
+  const width = Math.max(1, Math.round(Number(viewBox[1])));
+  const height = Math.max(1, Math.round(Number(viewBox[2])));
+  const strokeMatch = String(svgText).match(/stroke-width=["']([\d.]+)/i);
+  const strokeWidth = strokeMatch ? Number(strokeMatch[1]) : 1.35;
+  const whiteBackground = /<rect\b[^>]*fill=["']#fff["']/i.test(svgText);
+  const segments = [];
+  const pathPattern = /<path\b[^>]*\bd=["']([^"']*)["'][^>]*>/gi;
+  let pathMatch;
+  while ((pathMatch = pathPattern.exec(svgText))) {
+    const tokens = pathMatch[1].match(/[ML]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) || [];
+    let command = '', current = null;
+    for (let i = 0; i < tokens.length;) {
+      if (/^[ML]$/i.test(tokens[i])) command = tokens[i++].toUpperCase();
+      if (!command || i + 1 >= tokens.length) break;
+      const x = Number(tokens[i++]), y = Number(tokens[i++]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      if (command === 'M' || !current) {
+        current = { x, y };
+        command = 'L';
+      } else {
+        segments.push({ x1: current.x, y1: current.y, x2: x, y2: y });
+        current = { x, y };
+      }
+    }
+  }
+  if (!segments.length) throw new Error('The saved project does not contain editable line paths.');
+  return {
+    w: width, h: height, segments,
+    d: segmentsToPath(segments),
+    foreground: segments.length,
+    auto: 127,
+    strokeWidth,
+    whiteBackground,
+  };
+}
