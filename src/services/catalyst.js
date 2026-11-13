@@ -14,7 +14,7 @@ let bucket;
 
 function isCatalystHosted() {
   const host = window.location.hostname.toLowerCase();
-  return host.endsWith('.catalystserverless.in') || host.endsWith('.catalystapp.in');
+  return ['.catalystserverless.in', '.catalystserverless.com', '.catalystapp.in', '.catalystapp.com'].some(domain => host.endsWith(domain));
 }
 
 async function getSession() {
@@ -28,10 +28,9 @@ export async function initializeCatalyst() {
   if (!isCatalystHosted()) {
     return { available: false, authenticated: false, user: null };
   }
-  initPromise ??= (async () => {
-    await zcAuth.init();
-    return getSession();
-  })();
+  // Browser SDK is initialized by the Catalyst-hosted client runtime. zcAuth.init()
+  // is the server-side initializer and must not be called from this browser entry point.
+  initPromise ??= getSession();
   try {
     return { available: true, ...(await initPromise) };
   } catch (error) {
