@@ -135,7 +135,7 @@ export async function saveProjectToCloud(file, svg, projectName) {
 
   const storedProject = project?.CREATORID ? project : await projects.getRow(rowId);
   const creatorId = String(storedProject?.CREATORID || '');
-  if (!/^\\d+$/.test(creatorId)) {
+  if (!/^\d+$/.test(creatorId)) {
     await projects.deleteRow(project.ROWID);
     throw new Error('Catalyst did not return the project owner ID. The project was not uploaded.');
   }
