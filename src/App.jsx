@@ -181,8 +181,10 @@ export default function App() {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = baseName + '-ink.svg';
+      document.body.appendChild(anchor);
       anchor.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
       return;
     }
     const image = new Image();
@@ -203,8 +205,10 @@ export default function App() {
           const anchor = document.createElement('a');
           anchor.href = pngUrl;
           anchor.download = baseName + '-ink.png';
+          document.body.appendChild(anchor);
           anchor.click();
-          setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
+          anchor.remove();
+          window.setTimeout(() => URL.revokeObjectURL(pngUrl), 1500);
         } else {
           setError('The browser could not create the PNG. Try a smaller image or export SVG instead.');
         }
