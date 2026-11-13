@@ -1,0 +1,53 @@
+name: MangaInker Web CI and GitHub Pages
+
+on:
+  push:
+    branches: [web-migration]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: mangainker-pages-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install
+      - name: Run image processing tests
+        run: npm test
+      - name: Build Catalyst website
+        run: npm run build
+      - name: Prepare Catalyst web-client ZIP
+        run: |
+          node -e "const fs=require('fs');const p=require('./client-package.json');p.version='1.0.'+process.env.GITHUB_RUN_NUMBER;fs.writeFileSync('dist/client-package.json',JSON.stringify(p,null,2)+'\\n')"
+          cd dist
+          zip -qr ../mangainker-catalyst-web.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MangaInker-Catalyst-Web
+          path: mangainker-catalyst-web.zip
+          if-no-files-found: error
+      - name: Dispatch GitHub Pages deployment from main
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-mangainker-pages.yml/dispatches" \
+            -d '{"ref":"main"}'
+

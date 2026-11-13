@@ -14,7 +14,6 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
-import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -30,6 +29,7 @@ import com.rohit.mangainker.core.SessionStore
 class FloatingPanelService : Service() {
     private lateinit var windowManager: WindowManager
     private var panel: LinearLayout? = null
+    private var bubble: TextView? = null
     private var calibrationToolbar: LinearLayout? = null
     private val handles = ArrayList<Handle>()
     private val handler = Handler(Looper.getMainLooper())
@@ -45,14 +45,14 @@ class FloatingPanelService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
             Toast.makeText(this, "Allow display over other apps first.", Toast.LENGTH_LONG).show()
             stopSelf()
             return
         }
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         startAsForeground()
-        showPanel()
+        showBubble()
         handler.post(refresh)
     }
 
@@ -66,16 +66,16 @@ class FloatingPanelService : Service() {
         }
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, channelId)
-                .setContentTitle("Manga Inker session active")
-                .setContentText("Drawing controls are available over ibisPaint.")
+                .setContentTitle("Manga Inker floating controls active")
+                .setContentText("Tap the MI bubble over any app to open drawing controls.")
                 .setSmallIcon(android.R.drawable.ic_menu_edit)
                 .setOngoing(true)
                 .build()
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(this)
-                .setContentTitle("Manga Inker session active")
-                .setContentText("Drawing controls are available over ibisPaint.")
+                .setContentTitle("Manga Inker floating controls active")
+                .setContentText("Tap the MI bubble over any app to open drawing controls.")
                 .setSmallIcon(android.R.drawable.ic_menu_edit)
                 .setOngoing(true)
                 .build()
@@ -87,12 +87,88 @@ class FloatingPanelService : Service() {
         }
     }
 
+    /** A small system overlay remains available while the user works in another app. */
+    private fun showBubble() {
+        if (bubble != null) return
+        val display = Point()
+        @Suppress("DEPRECATION")
+        windowManager.defaultDisplay.getRealSize(display)
+        val size = dp(54)
+        val icon = TextView(this).apply {
+            text = "MI"
+            textSize = 13f
+            setTextColor(0xFF081218.toInt())
+            gravity = Gravity.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            background = rounded(0xFF70D8E8.toInt(), size / 2)
+            elevation = dp(8).toFloat()
+            contentDescription = "Manga Inker floating controls. Tap to open, drag to move."
+            isClickable = true
+        }
+        val params = WindowManager.LayoutParams(
+            size, size, overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            x = (display.x - size - dp(16)).coerceAtLeast(0)
+            y = dp(150)
+        }
+        var downX = 0f
+        var downY = 0f
+        var startX = 0
+        var startY = 0
+        var moved = false
+        icon.setOnTouchListener { _, event ->
+            when (event.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    downY = event.rawY
+                    startX = params.x
+                    startY = params.y
+                    moved = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dx = event.rawX - downX
+                    val dy = event.rawY - downY
+                    if (kotlin.math.abs(dx) + kotlin.math.abs(dy) > dp(7)) moved = true
+                    if (moved) {
+                        params.x = (startX + dx.toInt()).coerceIn(0, (display.x - size).coerceAtLeast(0))
+                        params.y = (startY + dy.toInt()).coerceIn(0, (display.y - size).coerceAtLeast(0))
+                        runCatching { windowManager.updateViewLayout(icon, params) }
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP -> {
+                    if (!moved) togglePanel()
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> true
+                else -> true
+            }
+        }
+        bubble = icon
+        windowManager.addView(icon, params)
+    }
+
+    private fun togglePanel() {
+        if (panel == null) {
+            showPanel()
+        } else {
+            removePanel()
+            showBubble()
+        }
+    }
+
     private fun showPanel() {
+        removeBubble()
         removePanel()
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = rounded(0xF21A2029.toInt(), dp(16))
+            elevation = dp(10).toFloat()
         }
         val heading = TextView(this).apply {
             text = "MANGA INKER  /  LIVE"
@@ -128,15 +204,26 @@ class FloatingPanelService : Service() {
         })
         root.addView(makeButton("Start / Resume inking") {
             val service = InkingAccessibilityService.instance
-            if (service == null) toast("Enable Manga Inker drawing access first.")
-            else if (!service.startInking()) toast(SessionStore.status)
+            if (service == null) {
+                toast("Enable Manga Inker drawing access first.")
+            } else if (service.startInking()) {
+                // Clear the drawing area before injecting strokes; the small bubble remains available.
+                removePanel()
+                showBubble()
+            } else {
+                toast(SessionStore.status)
+            }
         })
         root.addView(makeButton("Pause after current stroke") { InkingAccessibilityService.instance?.pauseInking() })
         root.addView(makeButton("Stop after current stroke") { InkingAccessibilityService.instance?.stopInking() })
-        root.addView(makeButton("Close controls") { stopSelf() })
+        root.addView(makeButton("Minimize to floating icon") {
+            removePanel()
+            showBubble()
+        })
+        root.addView(makeButton("End floating controls") { stopSelf() })
 
         val params = WindowManager.LayoutParams(
-            dp(218), WindowManager.LayoutParams.WRAP_CONTENT,
+            dp(238), WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
@@ -151,6 +238,7 @@ class FloatingPanelService : Service() {
 
     private fun showCalibration() {
         removePanel()
+        removeBubble()
         removeCalibration()
         val display = Point()
         @Suppress("DEPRECATION")
@@ -170,6 +258,7 @@ class FloatingPanelService : Service() {
                 gravity = Gravity.CENTER
                 background = rounded(listOf(0xFF70D8E8.toInt(), 0xFFFFD166.toInt(), 0xFF8BE0A1.toInt(), 0xFFFF8A80.toInt())[index], size)
                 elevation = dp(8).toFloat()
+                contentDescription = "Drag marker ${index + 1} to a page corner"
             }
             val params = WindowManager.LayoutParams(
                 size, size, overlayType(),
@@ -300,6 +389,11 @@ class FloatingPanelService : Service() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
+    private fun removeBubble() {
+        bubble?.let { runCatching { windowManager.removeView(it) } }
+        bubble = null
+    }
+
     private fun removePanel() {
         panel?.let { runCatching { windowManager.removeView(it) } }
         panel = null
@@ -317,6 +411,7 @@ class FloatingPanelService : Service() {
         handler.removeCallbacks(refresh)
         removeCalibration()
         removePanel()
+        removeBubble()
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
     }
