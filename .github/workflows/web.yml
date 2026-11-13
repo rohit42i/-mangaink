@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: mangainker-pages-${{ github.event_name }}
@@ -38,4 +39,15 @@ jobs:
           name: MangaInker-Catalyst-Web
           path: mangainker-catalyst-web.zip
           if-no-files-found: error
+      - name: Dispatch GitHub Pages deployment from main
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/deploy-mangainker-pages.yml/dispatches" \
+            -d '{"ref":"main"}'
 
