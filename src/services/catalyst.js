@@ -206,3 +206,12 @@ export async function deleteCloudProject(row) {
   if (row?.preview_object_key) await bucket.deleteObject(row.preview_object_key);
   await datastore.table(PROJECT_TABLE).deleteRow(row.ROWID);
 }
+
+export async function listProcessingJobs() {
+  const rows = await firstPage(JOB_TABLE, 50);
+  return rows.sort((a, b) => {
+    const da = Date.parse(a.created_at || a.CREATEDTIME || 0) || 0;
+    const db = Date.parse(b.created_at || b.CREATEDTIME || 0) || 0;
+    return db - da;
+  });
+}
