@@ -59,3 +59,5 @@
 .mi-floating-divider{height:1px;background:var(--line);margin:3px 0}
 .mi-floating-panel p{font-size:9px;line-height:1.5;color:var(--muted);margin:5px 2px 1px}
 @media(max-width:780px){.mi-floating-tools{right:14px;bottom:14px}.mi-floating-trigger{width:54px;height:54px}.mi-floating-panel{width:min(240px,calc(100vw - 28px))}}
+
+.cloud-history-info{display:grid;gap:3px;min-width:0;flex:1}.cloud-history-info>b{font-size:10px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cloud-history-info>small{font-size:8px;color:var(--muted)}
