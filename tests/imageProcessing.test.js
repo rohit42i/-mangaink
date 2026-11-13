@@ -48,13 +48,14 @@ test('vector path editing removes selected segments', () => {
 
 test('saved SVG projects restore editable segments and output settings', () => {
   const svg = svgDocument({
-    width: 20, height: 15, path: 'M1 2L3 4',
+    width: 20, height: 15, path: 'M1 2L3 4', smooth: true,
     manualPaths: ['M5 6L7 8L9 10'], strokeWidth: 2.25, whiteBackground: true,
   });
   const restored = parseSvgDocument(svg);
   assert.equal(restored.w, 20);
   assert.equal(restored.h, 15);
   assert.equal(restored.strokeWidth, 2.25);
+  assert.equal(restored.smooth, true);
   assert.equal(restored.whiteBackground, true);
   assert.equal(restored.segments.length, 3);
 });
