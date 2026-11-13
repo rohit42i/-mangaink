@@ -28,7 +28,10 @@ export async function initializeCatalyst() {
   if (!isCatalystHosted()) {
     return { available: false, authenticated: false, user: null };
   }
-  initPromise ??= getSession();
+  initPromise ??= (async () => {
+    await zcAuth.init();
+    return getSession();
+  })();
   try {
     return { available: true, ...(await initPromise) };
   } catch (error) {
