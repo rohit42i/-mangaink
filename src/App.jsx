@@ -300,7 +300,7 @@ export default function App() {
                 ) : busy ? (
                   <div className="processing"><span className="spinner" /><b>Tracing your artwork…</b><small>Detecting, thinning and refining line paths</small></div>
                 ) : (
-                  <div className={'art ' + (whiteBackground && view !== 'overlay' ? 'art-white' : '')} style={{ transform: 'scale(' + zoom + ')' }}>
+                  <div className={'art ' + (whiteBackground && view !== 'overlay' ? 'art-white' : '')} style={{ transform: 'scale(' + zoom + ')', aspectRatio: result.w + ' / ' + result.h }}>
                     {view === 'original' ? <img src={result.source} alt="Original manga sketch" /> : (
                       <>
                         {view === 'overlay' && <img className="art-underlay" src={result.source} alt="Original sketch under transparent line art" />}
