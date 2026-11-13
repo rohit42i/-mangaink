@@ -27,6 +27,7 @@ public class FloatingOverlayService extends Service {
     private View bubble, panel, target;
     private float tapX = 540, tapY = 960;
     private boolean panelOpen = false;
+    private long intervalMs = 700;
     private static final String CHANNEL = "mangainker_overlay";
 
     @Override public void onCreate() {
@@ -107,17 +108,23 @@ public class FloatingOverlayService extends Service {
         heading.setTextColor(Color.WHITE); heading.setTextSize(15);
         box.addView(heading);
         box.addView(button("Set tap target", this::showTarget));
-        EditText interval = new EditText(this);
-        interval.setSingleLine(true); interval.setText("700"); interval.setHint("Interval in milliseconds");
-        interval.setTextColor(Color.WHITE); interval.setHintTextColor(0xffbfc5ce);
-        box.addView(interval);
+        TextView speed = new TextView(this);
+        speed.setTextColor(Color.WHITE); speed.setTextSize(13);
+        speed.setText("Tap interval: " + intervalMs + " ms");
+        box.addView(speed);
+        box.addView(button("Slower  +100 ms", () -> { intervalMs = Math.min(60000, intervalMs + 100); speed.setText("Tap interval: " + intervalMs + " ms"); }));
+        box.addView(button("Faster  -100 ms", () -> { intervalMs = Math.max(120, intervalMs - 100); speed.setText("Tap interval: " + intervalMs + " ms"); }));
         box.addView(button("Start auto tap", () -> {
+            if (!isAccessibilityEnabled()) {
+                Intent settings = new Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(settings);
+                return;
+            }
             Intent start = new Intent(TapAccessibilityService.ACTION_START);
             start.setPackage(getPackageName());
             start.putExtra("x", tapX); start.putExtra("y", tapY);
-            long ms = 700;
-            try { ms = Long.parseLong(interval.getText().toString()); } catch (Exception ignored) { }
-            start.putExtra("interval", ms);
+            start.putExtra("interval", intervalMs);
             sendBroadcast(start);
         }));
         box.addView(button("Stop auto tap", () -> sendBroadcast(new Intent(TapAccessibilityService.ACTION_STOP).setPackage(getPackageName()))));
@@ -128,6 +135,11 @@ public class FloatingOverlayService extends Service {
         panelParams.x = Math.max(8, bubbleParams.x - 190);
         panelParams.y = bubbleParams.y + 66;
         windowManager.addView(panel, panelParams);
+    }
+
+    private boolean isAccessibilityEnabled() {
+        String enabled = android.provider.Settings.Secure.getString(getContentResolver(), android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return enabled != null && enabled.toLowerCase().contains(getPackageName().toLowerCase());
     }
 
     private void removePanel() {
