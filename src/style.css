@@ -80,3 +80,8 @@
 .canvas-area:has(.art){background-color:#25282e;background-image:linear-gradient(45deg,#343840 25%,transparent 25%),linear-gradient(-45deg,#343840 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#343840 75%),linear-gradient(-45deg,transparent 75%,#343840 75%);background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0}
 .light .canvas-area:has(.art){background-color:#f5f6f8;background-image:linear-gradient(45deg,#e1e4e9 25%,transparent 25%),linear-gradient(-45deg,#e1e4e9 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e1e4e9 75%),linear-gradient(-45deg,transparent 75%,#e1e4e9 75%)}
 @media(max-width:780px){.editor-toolbar{gap:5px}.editor-hint{width:100%;margin:3px 0 0}.editor-label{width:100%;margin-bottom:2px}.art{width:90%}}
+
+/* Keep the floating tools usable on short screens and small phones. */
+.mi-floating-panel{max-height:calc(100dvh - 105px);overflow-y:auto;overscroll-behavior:contain}
+.mi-floating-trigger{flex:0 0 auto;touch-action:none;user-select:none;-webkit-user-select:none}
+@media(max-width:780px){.canvas-area{height:58dvh;min-height:300px}.art{max-width:94%;max-height:94%}.cloud-actions{gap:6px}.cloud-button{min-height:36px}.mi-floating-panel{max-height:calc(100dvh - 92px)}}
