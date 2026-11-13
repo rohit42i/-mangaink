@@ -202,8 +202,14 @@ export async function downloadProjectSource(objectKey) {
 
 export async function deleteCloudProject(row) {
   const { datastore, bucket } = await requireSignedIn();
-  if (row?.source_object_key) await bucket.deleteObject(row.source_object_key);
+  const sourceKey = row?.source_object_key || '';
+  if (sourceKey) await bucket.deleteObject(sourceKey);
   if (row?.preview_object_key) await bucket.deleteObject(row.preview_object_key);
+  if (sourceKey) {
+    const jobs = await firstPage(JOB_TABLE, 100);
+    const related = jobs.filter(job => job.input_object_key === sourceKey || job.output_object_key === row.preview_object_key);
+    await Promise.all(related.filter(job => job.ROWID).map(job => datastore.table(JOB_TABLE).deleteRow(job.ROWID)));
+  }
   await datastore.table(PROJECT_TABLE).deleteRow(row.ROWID);
 }
 
