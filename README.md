@@ -101,3 +101,8 @@ The browser workspace is published at https://rohit42i.github.io/-mangaink/.
 The web-migration branch is built and tested by the MangaInker Web CI workflow. After a successful push build, the main-branch Deploy MangaInker Website workflow checks out this branch and publishes the static site to GitHub Pages. The Android application source remains on main and is not replaced by the website source.
 
 GitHub Pages runs the local image-processing and export workspace. Account sign-in and cloud project storage are provided by the Zoho Catalyst-hosted deployment; they are intentionally unavailable on the GitHub Pages origin until that origin is configured and verified for Catalyst authentication and Stratus CORS/permissions.
+
+
+## On-device workspace
+
+When the site is opened outside Zoho Catalyst, MangaInker keeps project files, editable SVG previews, processing history and studio preferences in the browser's IndexedDB. Projects can be reopened and deleted from the workspace. This storage is private to the current browser/device and does not sync to another device. Sign-in and cross-device cloud storage are available only after the site is deployed and configured in Zoho Catalyst.
